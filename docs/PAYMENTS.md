@@ -33,6 +33,36 @@ flow cannot be configured for it, secret or not.
 | ACH/wire | possible | - | possible | underwriting, reconciliation |
 | Crypto | - | - | possible | compliance, volatility, custody risk |
 
+## Fan-to-creator: options the CREATOR can use
+
+These are the creator's own payment choices, not our processors.
+We never touch this money; the creator connects their approved
+platform and we link out.
+
+| Option | Best use | Adult-content caveat |
+|---|---|---|
+| Cash App | U.S. transfers | prohibited: adult-content transactions against policy |
+| Venmo | U.S. payments | prohibits pornography-related transactions |
+| PayPal | general online payments | not suitable for sexually oriented digital content |
+| Zelle | bank-to-bank | not an adult-commerce solution; check terms |
+| Direct bank / ACH | U.S. transfers | ask the bank about business use and transaction nature |
+| Paxum | adult-industry payments | verify availability, eligibility, fees, withdrawals |
+| Skrill | wallet, international | verify activity and country support |
+| Crypto (BTC/USDC) | direct wallet payments | irreversible, volatile, tax obligations; USDC issuer controls |
+| OnlyFans / Fansly / similar | subscriptions, tips, paid content | platform runs checkout and pays out via its own methods |
+
+**Practical recommendation for creators** (shown on the billing
+page): keep one approved creator platform for paid content, one
+verified bank payout method, and a second eligible payout option.
+Do not rely on Cash App or Venmo for adult-content transactions —
+their policies prohibit them.
+
+**Tips are not content sales.** Voluntary tips or gifts with
+nothing exchanged can fall under different rules than payment for
+photos, videos, chats, or custom content. Any tipping feature on
+this platform would need its own policy evaluation before launch;
+none is implemented today.
+
 ## Non-negotiable rules
 
 1. Marketplace warning: a processor that supports adult merchants

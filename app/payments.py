@@ -100,6 +100,11 @@ PROVIDER_FLOW_POLICY = {
     "segpay": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
     "ccbill": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
     "verotel": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
+    # verify-first candidates: confirm availability, account
+    # eligibility, fees, and country coverage in writing before
+    # configuring (see docs/PAYMENTS.md)
+    "paxum": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
+    "skrill": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
     "cash_app": set(),     # prohibits adult content and related
     "paypal": {SAAS_SUBSCRIPTION},  # prohibits adult digital
     # content; even for the SaaS flow, prefer dedicated software
