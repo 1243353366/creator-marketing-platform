@@ -41,9 +41,9 @@ platform and we link out.
 
 | Option | Best use | Adult-content caveat |
 |---|---|---|
-| Cash App | U.S. transfers | prohibited: adult-content transactions against policy |
-| Venmo | U.S. payments | prohibits pornography-related transactions |
-| PayPal | general online payments | not suitable for sexually oriented digital content |
+| Cash App | U.S. transfers | PROHIBITED (verified 2026-10-23): the Acceptable Use Policy explicitly bars selling adult content and services, incl. pornography, pay-per-view, and adult live-chat; accounts may be suspended or terminated. cash.app/us/en/legal/acceptable-use-policy |
+| Venmo | U.S. payments | PROHIBITED for this use (verified 2026-10-23): the U.S. User Agreement bars unauthorized commercial transactions on personal accounts and restricts obscene content / nudity / sexual activity. venmo.com/legal/us-user-agreement |
+| PayPal | general online payments | RESTRICTED (verified 2026-10-23): the Acceptable Use Policy identifies digitally delivered adult content incl. VOD and webcam as restricted (US page: paypal.com/us/legalhub/paypal/acceptableuse-full). Relabeling does not exempt a transaction. |
 | Zelle | bank-to-bank | not an adult-commerce solution; check terms |
 | Direct bank / ACH | U.S. transfers | ask the bank about business use and transaction nature |
 | Paxum | adult-industry payments | verify availability, eligibility, fees, withdrawals |
@@ -57,11 +57,27 @@ verified bank payout method, and a second eligible payout option.
 Do not rely on Cash App or Venmo for adult-content transactions —
 their policies prohibit them.
 
-**Tips are not content sales.** Voluntary tips or gifts with
-nothing exchanged can fall under different rules than payment for
-photos, videos, chats, or custom content. Any tipping feature on
-this platform would need its own policy evaluation before launch;
-none is implemented today.
+**Tips, gifts, and disguised purchases** (distinction verified
+against published policies 2026-10-23):
+
+1. Unconditional gift: money sent with nothing in return.
+2. Tip: voluntary extra money, e.g. in appreciation of content.
+3. Purchase disguised as a tip: payment with an expectation of
+   receiving a photo set, custom video, private chat, or other
+   service.
+
+Case 3 is a commercial transaction even if the payment note says
+"gift" or "tip." Changing the description does not change the
+underlying transaction, and no provider policy found grants a
+blanket exemption for relabeled purchases — Cash App's policy
+explicitly does not. This platform therefore takes no position
+that relabeling is safe: commercial transactions belong on the
+creator's approved processor, full stop. For genuine gifts with
+no exchange, the only reliable answer is to ask the provider
+directly whether that specific use is allowed; we do not claim
+unsolicited personal transfers are prohibited or permitted. No
+tipping feature exists on this platform, and none would launch
+without its own policy evaluation.
 
 ## Non-negotiable rules
 
