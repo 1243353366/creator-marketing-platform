@@ -135,6 +135,14 @@ def brand():
                 1, min(5, int(request.form.get("intensity", 2))))
         except ValueError:
             fields["intensity"] = 2
+        checkout = request.form.get("checkout_url",
+                                    "").strip()[:500]
+        # link-out to the CREATOR's own approved checkout platform
+        # (their content sales are their transaction, not ours)
+        if checkout and not checkout.startswith("https://"):
+            return render_template("brand.html", profile=profile,
+                error="Checkout link must be https://"), 400
+        fields["checkout_url"] = checkout or None
         if profile is None:
             db.add(BrandProfile(user_id=user.id, **fields))
         else:
@@ -245,12 +253,16 @@ def add_metric(cid):
 
     def num(key):
         return max(0, int(request.form.get(key, 0) or 0))
+    profile = db.query(BrandProfile).filter_by(
+        user_id=user.id).one_or_none()
     import datetime as _dt
     now = _dt.datetime.now(_dt.timezone.utc)
     db.add(Metric(
         user_id=user.id, campaign_id=cid,
         variant_label=request.form.get("variant_label",
                                        "A")[:4],
+        intensity=(profile.intensity if profile else None),
+        channel=(c.channel if c else None),
         recorded_at=now,
         window_start=now, window_end=now,
         impressions=num("impressions"), clicks=num("clicks"),
@@ -261,6 +273,44 @@ def add_metric(cid):
                                 "manual")[:32]))
     db.commit()
     return redirect(url_for("ui.campaign_view", cid=cid))
+
+
+@bp.post("/campaign/<cid>/feedback")
+def add_feedback(cid):
+    """Optional qualitative feedback; evidence only, never a
+    promotion trigger. Tenant-scoped, timestamped."""
+    user = require_user()
+    check_csrf()
+    db = dbsession()
+    c = db.query(Campaign).filter_by(
+        id=cid, user_id=user.id).one_or_none()
+    if c is None:
+        abort(404)
+    body = request.form.get("body", "").strip()[:2000]
+    if not body:
+        abort(400, "empty feedback refused")
+    from .models import CreatorFeedback
+    db.add(CreatorFeedback(
+        user_id=user.id, campaign_id=cid,
+        variant_label=request.form.get("variant_label", "A")[:4],
+        body=body))
+    db.commit()
+    return redirect(url_for("ui.campaign_view", cid=cid))
+
+
+@bp.post("/review/<rid>/lifecycle")
+def review_lifecycle(rid):
+    """approved -> testing -> released | rolled_back. A change is
+    only ever released through an explicit, recorded step."""
+    user = require_user()
+    check_csrf()
+    action = request.form.get("action", "")
+    from . import monthly
+    try:
+        monthly.transition(user.id, rid, action)
+    except (PermissionError, ValueError) as exc:
+        abort(403, str(exc))
+    return redirect(url_for("ui.review"))
 
 
 @bp.route("/seo", methods=["GET", "POST"])

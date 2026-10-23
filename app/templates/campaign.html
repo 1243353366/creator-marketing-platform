@@ -37,4 +37,13 @@ No variants yet.</p>{% endif %}{% endfor %}
 <button>Record</button></form>
 <p class="muted">Recording requires analytics consent and is
  stored tenant-scoped.</p></div>
+<div class="card"><h3>Feedback on this variant (optional)</h3>
+<form method="post"
+ action="{{ url_for('ui.add_feedback', cid=campaign.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<select name="variant_label"><option>A</option><option>B</option></select>
+<input name="body" maxlength="2000" placeholder="What worked, what did not">
+<button>Save feedback</button></form>
+<p class="muted">Qualitative evidence for the monthly review. Never a
+ promotion trigger.</p></div>
 {% endblock %}

@@ -19,4 +19,10 @@
  value="{{ profile.conversion_goal if profile else '' }}">
 <input name="channels" placeholder="Channels"
  value="{{ profile.channels if profile else '' }}">
+<label>Checkout link for your own content sales (https://, optional)
+<input name="checkout_url" placeholder="https://your-approved-platform/..."
+ value="{{ profile.checkout_url if profile else '' }}"></label>
+<p class="hint">Links out to a payment platform that approves YOUR
+content category. A link is not a verified paywall, and we never
+hold your funds.</p>
 <button>Save</button></form></div>{% endblock %}

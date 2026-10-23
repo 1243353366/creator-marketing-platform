@@ -23,13 +23,14 @@ os.environ["DATABASE_URL"] = server.get_uri()
 os.environ.setdefault("SECRET_KEY", "dev-only-" + secrets.
                       token_urlsafe(24))
 
-from app.db import Base  # noqa: E402
-import app.models  # noqa: E402,F401
-from sqlalchemy import create_engine  # noqa: E402
+from alembic import command  # noqa: E402
+from alembic.config import Config  # noqa: E402
 
-engine = create_engine(os.environ["DATABASE_URL"])
-Base.metadata.create_all(engine)
-print("PostgreSQL ready; schema applied.")
+_cfg = Config(str(ROOT / "alembic.ini"))
+_cfg.set_main_option("script_location",
+                     str(ROOT / "migrations"))
+command.upgrade(_cfg, "head")
+print("PostgreSQL ready; migrations applied to head.")
 from app import create_app
 app = create_app()
 app.run(host="127.0.0.1", port=7778, threaded=True)

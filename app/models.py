@@ -80,6 +80,8 @@ class BrandProfile(Base):
     intensity: Mapped[int] = mapped_column(Integer, default=2)
     restrictions: Mapped[str] = mapped_column(Text, default="")
     cta: Mapped[str] = mapped_column(String(255), default="")
+    checkout_url: Mapped[str] = mapped_column(String(500),
+                                              nullable=True)
     conversion_goal: Mapped[str] = mapped_column(String(255),
                                                  default="")
     channels: Mapped[str] = mapped_column(String(255), default="")
@@ -155,6 +157,10 @@ class Metric(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True)
     campaign_id: Mapped[str] = mapped_column(String(32), index=True)
     variant_label: Mapped[str] = mapped_column(String(4))
+    # like-for-like normalization: the settings that produced this
+    # result travel WITH the row, not looked up later
+    intensity: Mapped[int] = mapped_column(Integer, nullable=True)
+    channel: Mapped[str] = mapped_column(String(40), nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now)
     window_start: Mapped[datetime] = mapped_column(
@@ -205,6 +211,22 @@ class SeoAudit(Base):
     )
 
 
+class CreatorFeedback(Base):
+    """Creator's qualitative feedback on a variant. Optional,
+    timestamped, tenant-scoped; joins the monthly analysis as
+    evidence, never as a promotion trigger."""
+    __tablename__ = "creator_feedback"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[str] = mapped_column(String(32),
+                                             index=True)
+    variant_label: Mapped[str] = mapped_column(String(4))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now)
+
+
 class MonthlyReview(Base):
     __tablename__ = "monthly_reviews"
     id: Mapped[str] = mapped_column(String(32), primary_key=True,
@@ -215,6 +237,8 @@ class MonthlyReview(Base):
     status: Mapped[str] = mapped_column(String(16),
                                        default="proposed")
     proposal_json: Mapped[str] = mapped_column(Text)
+    transition_log: Mapped[str] = mapped_column(
+        Text, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now)
     decided_at: Mapped[datetime | None] = mapped_column(
@@ -222,7 +246,8 @@ class MonthlyReview(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "period", name="uq_review"),
         CheckConstraint(status.in_(
-            ["proposed", "approved", "rejected"]),
+            ["proposed", "approved", "rejected", "testing",
+             "released", "rolled_back"]),
             name="ck_review_status"),
     )
 
@@ -248,6 +273,24 @@ class AuditLog(Base):
     target: Mapped[str] = mapped_column(String(255), default="")
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                          default=_now, index=True)
+
+
+class VerifiedPayment(Base):
+    """A payment verified server-side (signed webhook or provider
+    API check). The ONLY basis for unlocking paid access. A
+    submitted handle or screenshot never creates a row here."""
+    __tablename__ = "verified_payments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    flow: Mapped[str] = mapped_column(String(24), index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    reference: Mapped[str] = mapped_column(String(255))
+    provider: Mapped[str] = mapped_column(String(32))
+    verified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now)
+    __table_args__ = (
+        UniqueConstraint("flow", "tenant_id", "reference",
+                         name="uq_verified_payment"),)
 
 
 class WebhookEvent(Base):

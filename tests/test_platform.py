@@ -240,3 +240,180 @@ def test_wilson():
     lo, hi = wilson(60, 100)
     assert 0.5 < lo < 0.7 and lo < hi
     assert wilson(0, 0) == (0.0, 0.0)
+
+
+def test_results_carry_intensity_and_channel(client):
+    """Normalization data travels with the result row."""
+    c = client
+    make_user(c, "ric@x.com")
+    tok = csrf_of(client)
+    c.post("/brand", data={"csrf": tok, "display_name": "N",
+                           "voice": "wry", "audience": "adults",
+                           "intensity": "4", "channels": "x"})
+    c.post("/consent", data={"csrf": tok, "analytics": "on"})
+    c.post("/campaign/new", data={"csrf": tok, "name": "NR",
+                                  "channel": "instagram"})
+    from app.db import session
+    from app.models import Campaign
+    cid = session().query(Campaign).filter_by(
+        name="NR").one().id
+    c.post(f"/campaign/{cid}/metric",
+           data={"csrf": tok, "impressions": "100"})
+    from app.models import Metric
+    m = session().query(Metric).order_by(
+        Metric.id.desc()).first()
+    assert m.intensity == 4 and m.channel == "instagram"
+
+
+def test_feedback_stored_and_scoped(client):
+    c = client
+    make_user(c, "fb@x.com")
+    tok = csrf_of(client)
+    c.post("/brand", data={"csrf": tok, "display_name": "N",
+                           "voice": "wry", "audience": "a",
+                           "intensity": "2"})
+    c.post("/campaign/new", data={"csrf": tok, "name": "FB",
+                                  "channel": "instagram"})
+    from app.db import session
+    from app.models import Campaign
+    cid = session().query(Campaign).filter_by(
+        name="FB").one().id
+    r = c.post(f"/campaign/{cid}/feedback",
+               data={"csrf": tok, "body": "hook B felt stronger"})
+    assert r.status_code == 302
+    r = c.post(f"/campaign/{cid}/feedback",
+               data={"csrf": tok, "body": "   "})
+    assert r.status_code == 400  # empty feedback refused
+    from app.models import CreatorFeedback
+    fb = session().query(CreatorFeedback).all()
+    assert len(fb) == 1 and "stronger" in fb[0].body
+
+
+def test_lifecycle_release_requires_testing(client):
+    c = client
+    make_user(c, "lc@x.com")
+    tok = csrf_of(client)
+    """No path releases a change without a recorded experiment
+    state; rollback is reachable from both testing and released."""
+    c.post("/brand", data={"csrf": tok, "display_name": "N",
+                           "voice": "wry", "audience": "a",
+                           "intensity": "2"})
+    c.post("/consent", data={"csrf": tok, "analytics": "on"})
+    c.post("/campaign/new", data={"csrf": tok, "name": "LC",
+                                  "channel": "instagram"})
+    from app.db import session
+    from app.models import Campaign
+    cid = session().query(Campaign).filter_by(
+        name="LC").one().id
+    c.post(f"/campaign/{cid}/metric",
+           data={"csrf": tok, "impressions": "150",
+                 "clicks": "30", "conversions": "6"})
+    c.post("/review", data={"csrf": tok, "period": "2025-01"})
+    from app.models import MonthlyReview, User
+    uid = session().query(User).filter_by(
+        email="lc@x.com").one().id
+    rid = session().query(MonthlyReview).filter_by(
+        user_id=uid, period="2025-01").one().id
+    # release without testing: refused
+    r = c.post(f"/review/{rid}/lifecycle",
+               data={"csrf": tok, "action": "release"})
+    assert r.status_code == 403
+    c.post(f"/review/{rid}/decide",
+           data={"csrf": tok, "decision": "approved"})
+    c.post(f"/review/{rid}/lifecycle",
+            data={"csrf": tok, "action": "test"})
+    c.post(f"/review/{rid}/lifecycle",
+            data={"csrf": tok, "action": "release"})
+    row = session().query(MonthlyReview).filter_by(
+        id=rid).one()
+    assert row.status == "released"
+    import json as _json
+    log = _json.loads(row.transition_log)
+    assert [e["to"] for e in log] == ["testing", "released"]
+    c.post(f"/review/{rid}/lifecycle",
+           data={"csrf": tok,
+                 "action": "rollback_after_release"})
+    assert session().query(MonthlyReview).filter_by(
+        id=rid).one().status == "rolled_back"
+
+
+def test_checkout_link_out_validation(client):
+    c = client
+    make_user(c, "co@x.com")
+    tok = csrf_of(client)
+    """Creator content sales are a link-out, https-only."""
+    r = c.post("/brand", data={"csrf": tok, "display_name": "N",
+                               "voice": "wry", "audience": "a",
+                               "intensity": "2",
+                               "checkout_url": "http://bad.example"})
+    assert r.status_code == 400
+    r = c.post("/brand", data={"csrf": tok, "display_name": "N",
+                               "voice": "wry", "audience": "a",
+                               "intensity": "2",
+                               "checkout_url":
+                               "https://pay.example/me"})
+    assert r.status_code == 302
+    from app.db import session
+    from app.models import BrandProfile, User
+    uid = session().query(User).filter_by(
+        email="co@x.com").one().id
+    bp = session().query(BrandProfile).filter_by(
+        user_id=uid).one()
+    assert bp.checkout_url == "https://pay.example/me"
+
+
+def test_payment_flows_separate_and_fail_closed(client):
+    """Three flows, structurally separate providers, verified
+    payments only. No configured provider means no checkout, never
+    a fake one."""
+    from app import payments as P
+    # unconfigured: every flow refuses to create a checkout
+    for flow in P.FLOWS:
+        a = P.adapter_for(flow)
+        try:
+            a.create_checkout("t1", 100, {})
+            raise SystemExit(f"{flow} leaked an unconfigured checkout")
+        except P.AdapterError:
+            pass
+    # policy: stripe may NOT take the creator-checkout flow,
+    # even WITH a secret configured
+    try:
+        P.configure_provider(P.CREATOR_CHECKOUT, "stripe",
+                            {"PAYMENT_STRIPE_SECRET": "x"})
+        raise SystemExit("stripe accepted adult checkout flow")
+    except P.AdapterError:
+        pass
+    # cash_app is permitted for NO flow, secret or not
+    try:
+        P.configure_provider(P.SAAS_SUBSCRIPTION, "cash_app",
+                            {"PAYMENT_CASH_APP_SECRET": "x"})
+        raise SystemExit("cash_app accepted a flow")
+    except P.AdapterError:
+        pass
+    # segpay may take the creator-checkout flow when configured
+    ad = P.configure_provider(
+        P.CREATOR_CHECKOUT, "segpay",
+        {"PAYMENT_SEGPAY_SECRET": "k"})
+    assert ad.provider == "segpay"
+    # unlock gate: only a server-verified payment record opens it
+    make_user(client, "pay@x.com")
+    from app.db import session
+    from app.models import User
+    uid = session().query(User).filter_by(
+        email="pay@x.com").one().id
+    assert not P.payment_is_verified(
+        P.CREATOR_CHECKOUT, uid, "ref-1")
+    P.record_verified_payment(P.CREATOR_CHECKOUT, uid,
+                              "ref-1", "segpay")
+    assert P.payment_is_verified(
+        P.CREATOR_CHECKOUT, uid, "ref-1")
+    # idempotent: the same reference does not duplicate
+    P.record_verified_payment(P.CREATOR_CHECKOUT, uid,
+                              "ref-1", "segpay")
+    from app.models import VerifiedPayment
+    n = session().query(VerifiedPayment).filter_by(
+        tenant_id=uid, reference="ref-1").count()
+    assert n == 1
+    # tenant separation: another tenant cannot see the payment
+    assert not P.payment_is_verified(
+        P.CREATOR_CHECKOUT, "other-tenant", "ref-1")

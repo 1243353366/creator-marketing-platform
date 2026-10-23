@@ -173,6 +173,44 @@ def build_review(user_id, period):
     return review, "created"
 
 
+TRANSITIONS = {
+    # a released change always passes through testing first, and
+    # rollback is always available after release
+    "test": ("approved", "testing"),
+    "release": ("testing", "released"),
+    "roll_back": ("testing", "rolled_back"),
+    "rollback_after_release": ("released", "rolled_back"),
+}
+
+
+def transition(user_id, review_id, action):
+    """Explicit, recorded lifecycle steps. No action rewrites
+    production prompts automatically; release requires a prior
+    testing state. Rollback is always reachable."""
+    if action not in TRANSITIONS:
+        raise ValueError(f"unknown lifecycle action {action!r}")
+    db = session()
+    row = db.query(MonthlyReview).filter(
+        MonthlyReview.id == review_id,
+        MonthlyReview.user_id == user_id).one_or_none()
+    if row is None:
+        raise PermissionError("review not found for this tenant")
+    frm, to = TRANSITIONS[action]
+    if row.status != frm:
+        raise ValueError(
+            f"lifecycle requires status {frm!r}, not {row.status!r}")
+    row.status = to
+    row.decided_at = datetime.now(timezone.utc)
+    row.transition_log = (json.dumps(
+        (json.loads(row.transition_log)
+         if getattr(row, "transition_log", "")
+         else []) +
+        [{"action": action, "from": frm, "to": to,
+          "at": datetime.now(timezone.utc).isoformat()}]))
+    db.commit()
+    return row
+
+
 def decide_review(user_id, review_id, decision):
     """Approval requires an authenticated owner of the review."""
     db = session()

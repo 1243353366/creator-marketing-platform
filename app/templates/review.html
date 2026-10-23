@@ -23,6 +23,19 @@ approval below.</p></div>
 <input type="hidden" name="csrf" value="{{ csrf }}">
 <button name="decision" value="approved">Approve</button>
 <button name="decision" value="rejected">Reject</button>
+</form>
+<form method="post"
+ action="{{ url_for('ui.review_lifecycle', rid=r.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% if r.status == 'approved' %}
+<button name="action" value="test">Start experiment</button>
+{% elif r.status == 'testing' %}
+<button name="action" value="release">Release</button>
+<button name="action" value="roll_back">Roll back</button>
+{% elif r.status == 'released' %}
+<button name="action" value="rollback_after_release">
+ Roll back released change</button>
+{% endif %}
 </form>{% endif %}</div>
 {% else %}<p class="muted">No reviews yet.</p>{% endfor %}
 {% endblock %}

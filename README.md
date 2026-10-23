@@ -97,11 +97,25 @@ Limitations, stated plainly:
 
 ## Payment-provider configuration and restrictions
 
-Two separate flows: (1) customers paying for this SaaS, (2)
-creators collecting payment for their own content. Choose a
-provider whose terms permit each flow separately; adult-content
-processing is provider-dependent and must never be disguised.
-Setup: obtain provider approval, set PAYMENT_WEBHOOK_SECRET,
+THREE separate flows with separate provider rules:
+(1) SaaS subscriptions paid to us (software processor — Stripe
+suits this flow, the SaaS sells marketing software, not adult
+content), (2) fans paying creators for content (a processor that
+explicitly permits the creator's content category — Segpay /
+CCBill / Verotel candidates with written approval for the exact
+business model; Cash App prohibits adult content, PayPal
+prohibits sexually oriented digital content, Stripe restricts
+adult sales — never build around those for this flow), and
+(3) creator payouts (their own revenue, paid out by the approved
+processor or a compliant payout provider). Full matrix and the
+marketplace-model written-approval requirement:
+docs/PAYMENTS.md. A policy-enforced provider registry
+(app/payments.py) refuses structurally disallowed pairings; an
+unconfigured flow refuses to create a checkout (nothing faked).
+Creator funds are never collected or held (https-only link-out).
+Paid access unlocks ONLY on a server-verified payment record
+(verified_payments), never a submitted handle or screenshot.
+Setup: provider approval in writing, PAYMENT_WEBHOOK_SECRET,
 register the signed webhook endpoint /webhook/payment. Webhooks
 verify HMAC signatures with replay protection and idempotent
 event handling. Card data is never stored; provider-hosted
