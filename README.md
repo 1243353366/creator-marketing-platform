@@ -149,7 +149,16 @@ duplicate side effects, no secrets in responses, CI gate integrity
 (every sentinel present in ci.yml AND on disk), rollback consistency
 (downgrade/re-upgrade must reproduce the exact head schema, matching
 the app models), and the sentinel self-drill (a sentinel that cannot
-find its target fails loudly). Error-path completeness is enforced by
+find its target fails loudly). tests/test_sentinel_drills.py
+adds ENFORCEMENT drills: each CI sentinel (ruff, schema parity,
+error-path audit, oracle probe) is run against a scratch copy
+whose target control is deliberately weakened, and must fail
+with drill-specific evidence - a file that exists but no longer
+enforces is caught, not just one that is deleted. Every drill
+runs as a subprocess with an explicit isolated environment. The
+rollback drill likewise runs env-isolated: the temporary
+DATABASE_URL and embedded postgres live and die inside the
+drill, so no test can depend on execution order. Error-path completeness is enforced by
 scripts/error_paths_audit.py in CI: every validation failure must
 reject, explain, and leak no internals. Every detected failure keeps
 its evidence in the commit and the regression that proves the control. Attacks every

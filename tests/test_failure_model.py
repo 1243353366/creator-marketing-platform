@@ -13,11 +13,47 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
 import pytest
+
+DIRLL_SRC = """
+import os, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, ".")
+from pgserver import PostgresServer
+pgroot = Path(tempfile.mkdtemp(prefix="rollback-")) / "pg"
+pgroot.mkdir(parents=True)
+os.environ["DATABASE_URL"] = PostgresServer(pgroot).get_uri()
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, inspect
+
+def schema(engine):
+    insp = inspect(engine)
+    return {t: sorted(c["name"] for c in insp.get_columns(t))
+            for t in insp.get_table_names()
+            if t != "alembic_version"}
+
+cfg = Config("alembic.ini")
+command.upgrade(cfg, "head")
+eng = create_engine(os.environ["DATABASE_URL"])
+full = schema(eng)
+command.downgrade(cfg, "-1")
+rolled = schema(eng)
+assert rolled != full, "downgrade changed nothing?"
+command.upgrade(cfg, "head")
+again = schema(eng)
+eng.dispose()
+assert again == full, "re-upgrade drifted from head"
+sys.path.insert(0, "")
+from app.db import Base
+expected = {t.name: sorted(c.name for c in t.columns)
+            for t in Base.metadata.sorted_tables}
+assert expected == again, "schema disagrees with app models"
+print("rollback drill: schema identical after recovery")
+"""
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tests.test_platform import make_user, csrf_of  # noqa: E402
@@ -206,46 +242,23 @@ def test_ci_gate_integrity():
 
 
 # --- 9. Plane: rollback must leave consistent state ----------
-def test_rollback_recovery_consistency():
+def test_rollback_recovery_consistency(tmp_path):
     """Plane / corrupted recovery. Downgrade then re-upgrade
-    must end at a schema identical to the models - recovery
-    that drifts is worse than no recovery."""
-    from alembic import command
-    from alembic.config import Config
-    from pgserver import PostgresServer
-    from sqlalchemy import create_engine, inspect
-
-    tmp = tempfile.mkdtemp(prefix="cmp-rollback-")
-    pgroot = Path(tmp) / "pg"
-    pgroot.mkdir(parents=True)
-    os.environ["DATABASE_URL"] = PostgresServer(
-        pgroot).get_uri()
-
-    def schema(engine):
-        insp = inspect(engine)
-        return {t: sorted(c["name"] for c in
-                          insp.get_columns(t))
-                for t in insp.get_table_names()
-                if t != "alembic_version"}
-
-    cfg = Config("alembic.ini")
-    command.upgrade(cfg, "head")
-    engine = create_engine(os.environ["DATABASE_URL"])
-    full = schema(engine)
-    command.downgrade(cfg, "-1")
-    rolled = schema(engine)
-    assert rolled != full, "downgrade changed nothing?"
-    command.upgrade(cfg, "head")
-    again = schema(engine)
-    engine.dispose()
-    assert again == full, (
-        "re-upgrade drifted from the original head schema")
-    # and head must match the models the app actually uses
-    from app.db import Base
-    expected = {t.name: sorted(c.name for c in t.columns)
-                for t in Base.metadata.sorted_tables}
-    assert expected == again, (
-        "migrated schema disagrees with app models")
+    must end at a schema identical to the models. Runs as a
+    SUBPROCESS: the process-wide DATABASE_URL and the embedded
+    postgres live and die inside the drill, so no state leaks
+    into this process and no other test depends on order."""
+    drill = tmp_path / "rollback_drill.py"
+    drill.write_text(DIRLL_SRC)
+    r = subprocess.run(
+        [sys.executable, str(drill)],
+        capture_output=True, text=True, cwd=str(
+            Path(__file__).resolve().parents[1]),
+        env={**os.environ, "DATABASE_URL": ""},
+        timeout=420)
+    assert r.returncode == 0, (r.stdout + r.stderr)[-400:]
+    # proof of isolation: this process env was never touched
+    assert os.environ.get("DATABASE_URL", "") == ""
 
 
 # --- 10. cross-system: sentinel cannot be fooled -------------
