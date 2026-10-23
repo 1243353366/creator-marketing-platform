@@ -7,7 +7,7 @@
  profile.</p>{% endif %}
 <form method="post"
  action="{{ url_for('ui.campaign_generate', cid=campaign.id) }}">
-<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
 <button>Generate A/B variants</button>
 {% if campaign.status == 'generated' %}
 <button formaction="{{ url_for('ui.campaign_confirm', cid=campaign.id) }}"
@@ -26,7 +26,7 @@ No variants yet.</p>{% endif %}{% endfor %}
 <div class="card"><h3>Record performance</h3>
 <form method="post"
  action="{{ url_for('ui.add_metric', cid=campaign.id) }}">
-<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
 <select name="variant_label"><option>A</option><option>B</option></select>
 <input name="impressions" type="number" min="0" placeholder="Impressions">
 <input name="clicks" type="number" min="0" placeholder="Clicks">

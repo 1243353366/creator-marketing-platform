@@ -33,8 +33,13 @@ def create_app(config=None):
             "with an insecure default.")
     import json
     app.jinja_env.filters["from_json"] = json.loads
-    from .db import init_db
+    from .db import close_session, init_db
     init_db(url)
+
+    @app.teardown_appcontext
+    def _close_scoped_session(exc):
+        close_session()
+
     from .routes import register
     register(app)
     return app

@@ -32,7 +32,7 @@ td,th{border-bottom:1px solid #ddd;padding:6px;text-align:left}
 <form method="post" action="{{ url_for('ui.logout') }}"
  style="margin:0">
 <input type="hidden" name="csrf"
- value="{{ session.get('csrf','') }}">
+ value="{{ csrf }}">
 <button type="submit">Log out</button></form>
 {% else %}
 <a href="{{ url_for('ui.login') }}">Log in</a>

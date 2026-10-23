@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block body %}
 <div class="card"><h1>Your campaigns</h1>
 <form method="post" action="{{ url_for('ui.campaign_new') }}">
-<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
 <input name="name" placeholder="Campaign name" required>
 <select name="channel">
  <option>email</option><option>social</option>

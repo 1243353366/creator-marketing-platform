@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block body %}<div class="card">
 <h1>Monthly improvement reviews</h1>
 <form method="post">
-<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
 <input name="period" placeholder="2026-10" pattern="\d{4}-\d{2}"
  required>
 <button>Build proposal</button></form>
@@ -20,7 +20,7 @@ approval below.</p></div>
 {% if r.status == 'proposed' %}
 <form method="post"
  action="{{ url_for('ui.review_decide', rid=r.id) }}">
-<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
 <button name="decision" value="approved">Approve</button>
 <button name="decision" value="rejected">Reject</button>
 </form>{% endif %}</div>

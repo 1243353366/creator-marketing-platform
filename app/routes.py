@@ -10,7 +10,8 @@ from flask import (Blueprint, abort, flash, redirect,
 from . import auth, consent as consent_svc, marketing, monthly
 from . import payments as payments_svc, seo
 from .db import session as dbsession
-from .models import (BrandProfile, Campaign, Consent, Metric,
+from .models import (User, BrandProfile, Campaign, Consent,
+                     Metric,
                      MonthlyReview, SeoAudit, SeoPage, Variant)
 
 bp = Blueprint("ui", __name__)
@@ -40,7 +41,9 @@ def check_csrf():
 
 @bp.app_context_processor
 def inject_user():
-    return {"user": current_user()}
+    data = auth.user_for_token(fsession.get("token", ""))
+    return {"user": data[0] if data else None,
+            "csrf": data[1].csrf_token if data else ""}
 
 
 def register(app):
@@ -68,11 +71,10 @@ def signup():
             flash("Valid email and 10+ char password required")
             return render_template("signup.html"), 400
         db = dbsession()
-        if db.query(__import__("app.models", fromlist=["User"]).User
+        if db.query(User
                     ).filter_by(email=email).one_or_none():
             flash("Email already registered")
             return render_template("signup.html"), 409
-        from .models import User
         user = User(email=email,
                     password_hash=auth.hash_password(password))
         db.add(user)
