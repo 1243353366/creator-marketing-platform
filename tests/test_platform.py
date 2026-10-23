@@ -439,3 +439,62 @@ def test_payment_flows_separate_and_fail_closed(client):
     # tenant separation: another tenant cannot see the payment
     assert not P.payment_is_verified(
         P.CREATOR_CHECKOUT, "other-tenant", "ref-1")
+
+
+def test_share_keywords_honest(client):
+    make_user(client, "kw@example.com")
+    token = csrf_of(client)
+    # empty profile -> no keywords, never filler
+    r = client.get("/share")
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert "nothing invented" in body
+    assert "github.com/1243353366/creator-marketing-platform" in body
+    # fill the brand profile; keywords must come from it
+    r = client.post("/brand", data={
+        "csrf": token, "display_name": "Sunny Ceramics Studio",
+        "voice": "warm", "audience": "home decor lovers",
+        "intensity": 2, "cta": "shop handmade mugs",
+        "business_url": "https://maps.example/sunny-ceramics"})
+    assert r.status_code == 302, r.status_code
+    body = client.get("/share").get_data(as_text=True)
+    for kw in ("sunny", "ceramics", "studio", "handmade", "mugs"):
+        assert kw in body.lower(), kw
+    # no invented content: stopword filler absent from the list
+    assert "mugs, the" not in body.lower()
+    # place of business renders
+    assert "https://maps.example/sunny-ceramics" in body
+
+
+def test_share_business_url_validation(client):
+    make_user(client, "kw2@example.com")
+    token = csrf_of(client)
+    r = client.post("/brand", data={
+        "csrf": token, "display_name": "x", "voice": "y",
+        "audience": "z", "intensity": 2,
+        "business_url": "http://insecure.example/x"})
+    assert r.status_code == 400
+    assert b"Business link must be https://" in r.data
+
+
+def test_share_link_formats():
+    from app.share import (meta_share_url, generate_keywords,
+                           REFERRAL_URL)
+    # adversarial url cannot inject sharer parameters
+    u = meta_share_url("https://x.example/a?b=1&c=2#f")
+    assert u.startswith(
+        "https://www.facebook.com/sharer/sharer.php?u=")
+    assert "%26" in u and "%3F" in u and "#f" not in u
+    # deterministic, capped, own-data only
+    class P:
+        display_name = "Alpha Beta Gamma"
+        voice = "alpha voice test"
+        audience = ""
+        cta = ""
+        channels = ""
+        conversion_goal = ""
+    kws = generate_keywords(P(), "")
+    assert kws[0] == "alpha" and "beta" in kws
+    assert len(kws) <= 12
+    assert "the" not in kws and "and" not in kws
+    assert REFERRAL_URL.endswith("creator-marketing-platform")

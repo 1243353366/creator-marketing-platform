@@ -9,6 +9,7 @@ from flask import (Blueprint, abort, flash, redirect,
 
 from . import auth, consent as consent_svc, marketing, monthly
 from . import payments as payments_svc, seo
+from . import share as S
 from .db import session as dbsession
 from .models import (User, BrandProfile, Campaign, Metric,
                      MonthlyReview, SeoAudit, SeoPage, Variant)
@@ -143,6 +144,14 @@ def brand():
             return render_template("brand.html", profile=profile,
                 error="Checkout link must be https://"), 400
         fields["checkout_url"] = checkout or None
+        business = request.form.get("business_url",
+                                    "").strip()[:500]
+        # the creator's place of business (map page, listing,
+        # storefront), shown on their share page - their link
+        if business and not business.startswith("https://"):
+            return render_template("brand.html", profile=profile,
+                error="Business link must be https://"), 400
+        fields["business_url"] = business or None
         if profile is None:
             db.add(BrandProfile(user_id=user.id, **fields))
         else:
@@ -442,6 +451,36 @@ def payment_webhook():
     except payments_svc.WebhookRefused as exc:
         abort(400, str(exc))
     return {"received": True}
+
+
+@bp.get("/share")
+def share_page():
+    user = require_user()
+    db = dbsession()
+    profile = db.query(BrandProfile).filter_by(
+        user_id=user.id).one_or_none()
+    pages = db.query(SeoPage).filter_by(
+        user_id=user.id).order_by(SeoPage.url).all()
+    shares = []
+    for pg in pages:
+        audit = db.query(SeoAudit).filter_by(
+            user_id=user.id, page_id=pg.id).order_by(
+            SeoAudit.checked_at.desc()).first()
+        extra = " ".join(
+            x for x in (getattr(audit, "meta_title", ""),
+                        getattr(audit, "meta_desc", "")) if x)
+        shares.append({
+            "page": pg,
+            "meta_url": S.meta_share_url(pg.url),
+            "keywords": S.generate_keywords(profile, extra),
+        })
+    return render_template(
+        "share.html", shares=shares, profile=profile,
+        business_url=(profile.business_url or "")
+        if profile else "",
+        referral_url=S.REFERRAL_URL,
+        referral_label=S.REFERRAL_LABEL,
+        keywords=S.generate_keywords(profile))
 
 
 @bp.get("/payments")

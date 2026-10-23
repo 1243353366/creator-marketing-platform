@@ -128,6 +128,13 @@ checkout is the required pattern. No transactions are simulated.
 - docs/LESSONS.md: build-session mistakes recorded as reusable
   condition models with their standing guards. Appended, never
   rewritten.
+- /share: creators share their tracked pages to Meta, feature
+  their place of business (business_url, https-only), and get
+  keyword suggestions generated deterministically from their OWN
+  brand data - empty profile, no keywords, nothing invented.
+  Every share carries the platform referral (the project's
+  GitHub link) - the creator promotes their business, the
+  platform travels with the post.
 - scripts/oracle_probe.py: wrong-target sentinel. Attacks every
   object route as the wrong agent - another tenant by id
   (IDOR), a browser across list pages (cross-tenant leakage),

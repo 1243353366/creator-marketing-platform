@@ -24,7 +24,12 @@ products, services, courses (https://, optional; your
 transaction, your approved processor)
 <input name="checkout_url" placeholder="https://your-checkout-or-storefront/..."
  value="{{ profile.checkout_url if profile else '' }}"></label>
+<label>Place of business link - map page, listing, storefront
+(https://, optional; shown on your share page)
+<input name="business_url" placeholder="https://maps.example/your-business"
+ value="{{ profile.business_url if profile else '' }}"></label>
 <p class="hint">Links out to a payment platform that approves YOUR
 content category. A link is not a verified paywall, and we never
 hold your funds.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
 <button>Save</button></form></div>{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card">
+<h1>Share your pages</h1>
+<p class="hint">Share to Meta, link your place of business,
+and use your generated keywords in the post. Every share
+carries the platform referral: {{ referral_label }}.</p>
+
+{% if business_url %}
+<h2>Your place of business</h2>
+<p><a href="{{ business_url }}" rel="noopener">{{ business_url }}</a></p>
+{% else %}
+<p class="muted">Add a business link on the
+<a href="{{ url_for('ui.brand') }}">brand page</a> to feature
+your place of business here.</p>
+{% endif %}
+
+<h2>Your keywords (from your own brand data)</h2>
+{% if keywords %}
+<p class="hint">{% for k in keywords %}{{ k }}{{ ", " if not loop.last }}{% endfor %}</p>
+{% else %}
+<p class="muted">Fill in your <a href="{{ url_for('ui.brand') }}">brand profile</a>
+and keywords will be generated from it - nothing invented.</p>
+{% endif %}
+
+<h2>Pages</h2>
+{% for s in shares %}
+<div class="card">
+<h3>{{ s.page.url }}</h3>
+<p><a href="{{ s.meta_url }}" rel="noopener" target="_blank">Share on Meta</a></p>
+{% if s.keywords %}
+<p class="hint">Page keywords: {% for k in s.keywords %}{{ k }}{{ ", " if not loop.last }}{% endfor %}</p>
+{% endif %}
+</div>
+{% else %}
+<p class="muted">No pages tracked yet. Add pages under
+<a href="{{ url_for('ui.seo_page_list') }}">SEO</a> to share them.</p>
+{% endfor %}
+
+<div class="card">
+<h3>Platform referral (included with your shares)</h3>
+<p><a href="{{ referral_url }}" rel="noopener">{{ referral_url }}</a></p>
+<p class="hint">Credit the tool when you post - your business
+gets the promotion, the platform gets the referral.</p>
+</div>
+</div>
+{% endblock %}

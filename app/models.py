@@ -82,6 +82,8 @@ class BrandProfile(Base):
     cta: Mapped[str] = mapped_column(String(255), default="")
     checkout_url: Mapped[str] = mapped_column(String(500),
                                               nullable=True)
+    business_url: Mapped[str] = mapped_column(String(500),
+                                              nullable=True)
     conversion_goal: Mapped[str] = mapped_column(String(255),
                                                  default="")
     channels: Mapped[str] = mapped_column(String(255), default="")

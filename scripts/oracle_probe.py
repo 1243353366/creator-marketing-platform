@@ -140,8 +140,8 @@ try:
 
     # --- 2. cross-tenant leakage on list pages ---------------
     for path in ("/dashboard", "/brand", "/review", "/seo",
-                 "/consent", "/payments", "/seo/sitemap",
-                 "/seo/audit-history"):
+                 "/share", "/consent", "/payments",
+                 "/seo/sitemap", "/seo/audit-history"):
         body = b.get(path).get_data(as_text=True)
         if A_MARK in body:
             failures.append(
@@ -150,7 +150,7 @@ try:
     # --- 3. auth boundary: anonymous --------------------------
     anon = new_client()
     for path in ("/dashboard", "/brand", "/review", "/seo",
-                 "/consent", "/payments",
+                 "/share", "/consent", "/payments",
                  "/seo/sitemap", "/seo/audit-history"):
         r = anon.get(path)
         if r.status_code == 200:
