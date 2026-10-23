@@ -171,7 +171,7 @@ def campaign_new():
     db = dbsession()
     name = request.form.get("name", "")[:120].strip()
     if not name:
-        abort(400)
+        abort(400, "campaign name required")
     db.add(Campaign(
         user_id=user.id, name=name,
         channel=request.form.get("channel", "email")[:32],
@@ -200,6 +200,11 @@ def campaign_view(cid):
 def campaign_generate(cid):
     user = require_user()
     check_csrf()
+    # wrong-target guard: a foreign or missing campaign is a
+    # 404, never a redirect that reads like success
+    if dbsession().query(Campaign).filter_by(
+            id=cid, user_id=user.id).one_or_none() is None:
+        abort(404)
     try:
         marketing.generate(cid, user.id, current_app_config())
     except marketing.GenerationError as exc:
@@ -402,7 +407,7 @@ def review():
         check_csrf()
         period = request.form.get("period", "")
         if len(period) != 7 or period[4] != "-":
-            abort(400)
+            abort(400, "period must look like YYYY-MM")
         try:
             row, _ = monthly.build_review(user.id, period)
         except ValueError as exc:
@@ -428,7 +433,7 @@ def review_decide(rid):
     check_csrf()
     decision = request.form.get("decision", "")
     if decision not in ("approved", "rejected"):
-        abort(400)
+        abort(400, "decision must be approved or rejected")
     try:
         monthly.decide_review(user.id, rid, decision)
     except PermissionError:

@@ -62,7 +62,8 @@ def test_tenant_isolation(client):
     assert r.status_code == 404  # cross-tenant read denied
     r = client.post(f"/campaign/{cid}/generate",
                     data={"csrf": csrf_of(client)})
-    assert r.status_code == 302  # redirects with error, no data
+    assert r.status_code == 404  # wrong target: 404, not a
+    # success-shaped redirect (soft-fail fixed 2026-10-23)
 
 
 def test_consent_separation_and_withdrawal(client):
@@ -498,3 +499,92 @@ def test_share_link_formats():
     assert len(kws) <= 12
     assert "the" not in kws and "and" not in kws
     assert REFERRAL_URL.endswith("creator-marketing-platform")
+
+
+def test_seo_audit_cannot_cross_tenants(client):
+    """Mutation proof: weakening the tenant scope on
+    /seo/<pid>/audit must fail this test."""
+    make_user(client, "seoA@example.com")
+    tok_a = csrf_of(client)
+    client.post("/seo", data={"csrf": tok_a,
+                              "url": "https://example.com/x"})
+    from app.db import session as dbs
+    from app.models import SeoPage
+    pid = dbs().query(SeoPage).filter_by(
+        url="https://example.com/x").first().id
+    make_user(client, "seoB@example.com")
+    tok_b = csrf_of(client)
+    r = client.post(f"/seo/{pid}/audit", data={"csrf": tok_b})
+    assert r.status_code == 404, (
+        "B audited A's page - tenant scope broken")
+
+
+def test_share_page_cannot_cross_tenants(client):
+    """Mutation proof: weakening the tenant scope on the
+    /share page query must fail this test."""
+    make_user(client, "shA@example.com")
+    tok_a = csrf_of(client)
+    client.post("/seo", data={"csrf": tok_a,
+                              "url": "https://example.com/only-a"})
+    make_user(client, "shB@example.com")
+    body = client.get("/share").get_data(as_text=True)
+    assert "example.com/only-a" not in body, (
+        "B's share page lists A's pages - tenant scope broken")
+    assert "seoA@example.com" not in body
+
+
+def test_metric_post_cannot_cross_tenants(client):
+    """Mutation proof: weakening the campaign scope in
+    /campaign/<cid>/metric must fail here. B is granted
+    analytics consent FIRST so the test reaches the scope
+    check instead of stopping at the consent gate."""
+    make_user(client, "mtA@example.com")
+    tok_a = csrf_of(client)
+    client.post("/campaign/new", data={
+        "csrf": tok_a, "name": "Mt camp A"})
+    from app.db import session as dbs
+    from app.models import Campaign
+    cid = dbs().query(Campaign).filter_by(
+        name="Mt camp A").first().id
+    make_user(client, "mtB@example.com")
+    tok_b = csrf_of(client)
+    client.post("/consent", data={
+        "csrf": tok_b, "analytics": "on"})
+    r = client.post(f"/campaign/{cid}/metric", data={
+        "csrf": tok_b, "kind": "ctr", "value": "0.5"})
+    assert r.status_code == 404, (
+        "B posted a metric onto A's campaign - tenant "
+        "scope broken")
+
+
+def test_review_list_cannot_cross_tenants(client):
+    """Mutation proof: weakening the review-list scope must
+    fail here - A's review data must never render for B."""
+    make_user(client, "rvA@example.com")
+    tok_a = csrf_of(client)
+    # a metric in the CURRENT period gives build_review data
+    client.post("/consent", data={
+        "csrf": tok_a, "analytics": "on"})
+    client.post("/campaign/new", data={
+        "csrf": tok_a, "name": "Rv camp A"})
+    from app.db import session as dbs
+    from app.models import Campaign
+    cid = dbs().query(Campaign).filter_by(
+        name="Rv camp A").first().id
+    period = __import__("datetime").datetime.now().strftime("%Y-%m")
+    client.post(f"/campaign/{cid}/metric", data={
+        "csrf": tok_a, "kind": "ctr", "value": "0.5"})
+    client.post("/review", data={
+        "csrf": tok_a, "period": period})
+    body_a = client.get("/review").get_data(as_text=True)
+    # assert on the rendered ROW (not the period string, which
+    # also lives in the form placeholder - that confound once
+    # let a real leak pass: 2026-10-23)
+    assert "Data points:" in body_a      # A's review rendered
+    make_user(client, "rvB@example.com")
+    body_b = client.get("/review").get_data(as_text=True)
+    assert "No reviews yet" in body_b, (
+        "B's review page listed A's reviews - tenant "
+        "scope broken")
+    assert "Data points:" not in body_b
+    assert "rvA@example.com" not in body_b

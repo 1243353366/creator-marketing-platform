@@ -18,6 +18,8 @@ jobs:
         run: python3 -m ruff check app tests scripts
       - name: Syntax gate (compile, Jinja parse, damage scan)
         run: python3 scripts/syntax_gate.py
+      - name: Error-path audit (reject, explain, no leaks)
+        run: python3 scripts/error_paths_audit.py
       - name: Migrations against real PostgreSQL
         run: python3 scripts/migrate.py upgrade
       - name: Schema parity guard (migrations vs models)

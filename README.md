@@ -135,7 +135,24 @@ checkout is the required pattern. No transactions are simulated.
   Every share carries the platform referral (the project's
   GitHub link) - the creator promotes their business, the
   platform travels with the post.
-- scripts/oracle_probe.py: wrong-target sentinel. Attacks every
+- scripts/oracle_probe.py: wrong-target sentinel.
+
+## Oracle / Pilot / Plane failure model
+
+Failure domains: Oracle (decision failures), Pilot (execution
+failures), Plane (infrastructure failures). tests/test_failure_model.py
+implements the ten core tests, each labeled with its domain:
+fail-closed boot, cross-tenant 404s, oracle-failure-is-not-approval
+(forged webhook never verifies), validation errors visible in the UI,
+failed operations never reported success, retry/replay without
+duplicate side effects, no secrets in responses, CI gate integrity
+(every sentinel present in ci.yml AND on disk), rollback consistency
+(downgrade/re-upgrade must reproduce the exact head schema, matching
+the app models), and the sentinel self-drill (a sentinel that cannot
+find its target fails loudly). Error-path completeness is enforced by
+scripts/error_paths_audit.py in CI: every validation failure must
+reject, explain, and leak no internals. Every detected failure keeps
+its evidence in the commit and the regression that proves the control. Attacks every
   object route as the wrong agent - another tenant by id
   (IDOR), a browser across list pages (cross-tenant leakage),
   an anonymous visitor (auth boundary), and a forged origin
