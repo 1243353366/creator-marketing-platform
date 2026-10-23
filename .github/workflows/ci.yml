@@ -18,6 +18,8 @@ jobs:
         run: python3 -m ruff check app tests scripts
       - name: Migrations against real PostgreSQL
         run: python3 scripts/migrate.py upgrade
+      - name: Schema parity guard (migrations vs models)
+        run: python3 scripts/check_schema_parity.py
       - name: Tests (real embedded PostgreSQL)
         run: python3 -m pytest tests/ -q
       - name: Startup and journey smoke

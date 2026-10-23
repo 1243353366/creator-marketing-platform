@@ -121,6 +121,17 @@ verify HMAC signatures with replay protection and idempotent
 event handling. Card data is never stored; provider-hosted
 checkout is the required pattern. No transactions are simulated.
 
+## Failure ledger and schema parity
+
+- docs/LESSONS.md: build-session mistakes recorded as reusable
+  condition models with their standing guards. Appended, never
+  rewritten.
+- scripts/check_schema_parity.py: builds the schema from
+  migrations only and from models only on two isolated real
+  PostgreSQL instances and fails on any drift (tables, columns,
+  check constraints). Runs in CI on every push. Every guard is
+  drilled with an injected failure before it is trusted.
+
 ## Consent and data retention
 
 - Analytics consent and model-training consent are separate
