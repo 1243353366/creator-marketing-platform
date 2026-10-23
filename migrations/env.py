@@ -25,6 +25,7 @@ if config.config_file_name is not None:
 import os
 import sys
 sys.path.insert(0, os.getcwd())
+import app.models  # noqa: E402,F401  (registers tables)
 from app.db import Base  # noqa: E402
 target_metadata = Base.metadata
 

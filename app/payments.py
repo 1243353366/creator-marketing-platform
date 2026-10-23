@@ -4,7 +4,6 @@ verifies HMAC signatures with replay protection and idempotency;
 without the secret it fails closed."""
 import hashlib
 import hmac
-import json
 import time
 
 from .db import session

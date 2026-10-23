@@ -2,7 +2,6 @@
 data goes through here; user_id ALWAYS comes from the session,
 never from the request."""
 from .db import session
-from . import models
 
 
 def owned(model, user_id, row_id):

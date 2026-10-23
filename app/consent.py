@@ -2,7 +2,7 @@
 queries only run on consented users; training use requires its own
 grant and is never implied by analytics consent."""
 from .db import session
-from .models import Consent, Metric, User
+from .models import Consent, Metric
 
 
 def set_consent(user_id, kind, granted):

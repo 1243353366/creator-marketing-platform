@@ -4,11 +4,9 @@
 Provider failures are visible error states. Template output is
 never presented as AI output, and provider failure never silently
 substitutes anything."""
-import ipaddress
 import json
 import re
 import socket
-import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -108,16 +106,18 @@ def _call_provider(app_cfg, payload):
     except urllib.error.HTTPError as e:
         if e.code in (429, 402):
             raise GenerationError(
-                "over_budget", f"provider HTTP {e.code}")
+                "over_budget", f"provider HTTP {e.code}") from e
         raise GenerationError(
-            "provider_unavailable", f"provider HTTP {e.code}")
+            "provider_unavailable", f"provider HTTP {e.code}") from e
     except (TimeoutError, socket.timeout):
-        raise GenerationError("provider_timeout", "10s exceeded")
+        raise GenerationError(
+            "provider_timeout", "10s exceeded") from None
     except urllib.error.URLError as e:
         raise GenerationError("provider_unavailable",
                               f"unreachable: {e}")
     except (json.JSONDecodeError, UnicodeDecodeError):
-        raise GenerationError("malformed_output", "bad JSON")
+        raise GenerationError(
+            "malformed_output", "bad JSON") from None
 
 
 def template_variant(profile, campaign, label):

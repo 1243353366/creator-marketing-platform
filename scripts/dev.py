@@ -8,7 +8,6 @@ and run with a WSGI server (see README).
 """
 import os
 import secrets
-import subprocess
 import sys
 from pathlib import Path
 

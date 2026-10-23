@@ -174,7 +174,6 @@ def test_webhook_boundary(client):
     r = client.post("/webhook/payment", data=payload,
                     headers=h1)
     assert r.status_code == 400  # no secret configured: refused
-    from app import create_app
     # configure secret via a second client is heavy; test the
     # service directly with a config dict
     from app import payments

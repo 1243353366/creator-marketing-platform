@@ -10,8 +10,7 @@ from flask import (Blueprint, abort, flash, redirect,
 from . import auth, consent as consent_svc, marketing, monthly
 from . import payments as payments_svc, seo
 from .db import session as dbsession
-from .models import (User, BrandProfile, Campaign, Consent,
-                     Metric,
+from .models import (User, BrandProfile, Campaign, Metric,
                      MonthlyReview, SeoAudit, SeoPage, Variant)
 
 bp = Blueprint("ui", __name__)
@@ -318,7 +317,7 @@ def seo_audit_history():
 
 @bp.post("/seo/sitemap")
 def seo_sitemap():
-    user = require_user()
+    require_user()
     check_csrf()
     urls = [u.strip() for u in
             request.form.get("urls", "").splitlines() if u.strip()]
