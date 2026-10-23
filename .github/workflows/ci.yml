@@ -1,0 +1,31 @@
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: python3 -m ruff check app tests scripts
+      - name: Migrations against real PostgreSQL
+        run: python3 scripts/migrate.py upgrade
+      - name: Tests (real embedded PostgreSQL)
+        run: python3 -m pytest tests/ -q
+      - name: Startup and journey smoke
+        run: |
+          setsid python3 scripts/dev.py > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:7778/healthz && break
+            sleep 1
+          done
+          python3 scripts/journey_verify.py
+          kill $(ps -eo pid,cmd | awk '$3=="scripts/dev.py"{print $1}')

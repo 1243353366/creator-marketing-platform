@@ -64,7 +64,7 @@ class _ValidatingRedirect(urllib.request.HTTPRedirectHandler):
 
     def redirect_request(self, req, fp, code, msg, headers, data):
         target = headers.get("Location", "")
-        host = assert_public_url(target)
+        assert_public_url(target)
         self.hops.append(target)
         if len(self.hops) > 4:
             raise FetchRefused("too many redirects")

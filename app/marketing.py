@@ -114,7 +114,7 @@ def _call_provider(app_cfg, payload):
             "provider_timeout", "10s exceeded") from None
     except urllib.error.URLError as e:
         raise GenerationError("provider_unavailable",
-                              f"unreachable: {e}")
+                              f"unreachable: {e}") from e
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise GenerationError(
             "malformed_output", "bad JSON") from None
