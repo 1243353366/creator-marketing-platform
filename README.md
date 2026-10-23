@@ -128,6 +128,12 @@ checkout is the required pattern. No transactions are simulated.
 - docs/LESSONS.md: build-session mistakes recorded as reusable
   condition models with their standing guards. Appended, never
   rewritten.
+- scripts/oracle_probe.py: wrong-target sentinel. Attacks every
+  object route as the wrong agent - another tenant by id
+  (IDOR), a browser across list pages (cross-tenant leakage),
+  an anonymous visitor (auth boundary), and a forged origin
+  (CSRF) - and fails CI if any attack succeeds or if the probe
+  cannot run its own attacks.
 - scripts/check_schema_parity.py: builds the schema from
   migrations only and from models only on two isolated real
   PostgreSQL instances and fails on any drift (tables, columns,

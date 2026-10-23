@@ -20,6 +20,8 @@ jobs:
         run: python3 scripts/migrate.py upgrade
       - name: Schema parity guard (migrations vs models)
         run: python3 scripts/check_schema_parity.py
+      - name: Oracle probe (IDOR, tenant, auth, CSRF)
+        run: python3 scripts/oracle_probe.py
       - name: Tests (real embedded PostgreSQL)
         run: python3 -m pytest tests/ -q
       - name: Startup and journey smoke

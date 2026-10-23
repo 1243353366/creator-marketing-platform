@@ -99,3 +99,22 @@ deleted.
   reusing a shared condition; both permitted AND refused
   pairings are asserted per category in the test suite, so
   either direction of the bug fails a test.
+
+## L8. A probe that silently skips its own attacks
+
+- **Condition:** an attack script discovers its target ids by
+  pattern-matching rendered pages (or any heuristic) and
+  continues when the match finds nothing.
+- **Symptom:** the probe reports all attacks repelled - while
+  the IDOR attack never ran once, because the id-shape regex
+  (\\d+) matched zero hex-uuid campaign ids. Verified by the
+  L5 drill: an injected unscoped query sailed through green.
+- **Cause:** the sentinel guessed the target's shape instead
+  of reading it - the Oracle class aimed at the sentinel
+  itself. Twice in one hour (csrf field name assumed
+  'csrf_token', ids assumed decimal).
+- **Guard:** probe extraction uses the page's own hrefs; a
+  probe that cannot find its attack targets exits nonzero
+  instead of reporting success; the drill (inject scope
+  removal -> probe must fail -> revert -> clean) is the
+  acceptance test for every probe change, run in CI.
