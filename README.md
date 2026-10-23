@@ -97,15 +97,17 @@ Limitations, stated plainly:
 
 ## Payment-provider configuration and restrictions
 
-THREE separate flows with separate provider rules:
+THREE separate flows with separate provider rules. The platform
+is category-neutral: creators market anything (business, art,
+courses, content), set their own paywall link, and provider
+rules attach to the CREATOR'S DECLARED CATEGORY:
 (1) SaaS subscriptions paid to us (software processor — Stripe
-suits this flow, the SaaS sells marketing software, not adult
-content), (2) fans paying creators for content (a processor that
-explicitly permits the creator's content category — Segpay /
-CCBill / Verotel candidates with written approval for the exact
-business model; Cash App prohibits adult content, PayPal
-prohibits sexually oriented digital content, Stripe restricts
-adult sales — never build around those for this flow), and
+suits this flow, the SaaS sells marketing software), (2) fans
+paying creators (category-aware registry: general categories may
+use standard processors; adult content requires a processor that
+explicitly permits it — Segpay / CCBill / Verotel candidates
+with written approval; Cash App, Venmo, PayPal, Stripe are
+prohibited or restricted for adult — verified 2026-10-23), and
 (3) creator payouts (their own revenue, paid out by the approved
 processor or a compliant payout provider). Full matrix and the
 marketplace-model written-approval requirement:

@@ -391,10 +391,32 @@ def test_payment_flows_separate_and_fail_closed(client):
     except P.AdapterError:
         pass
     # segpay may take the creator-checkout flow when configured
+    # (undeclared category defaults to ADULT, the strictest)
     ad = P.configure_provider(
         P.CREATOR_CHECKOUT, "segpay",
         {"PAYMENT_SEGPAY_SECRET": "k"})
     assert ad.provider == "segpay"
+    # category-neutral platform: a GENERAL creator (business,
+    # art, courses, anything unrestricted) may use standard
+    # processors; an ADULT creator may not
+    ad = P.configure_provider(
+        P.CREATOR_CHECKOUT, "stripe",
+        {"PAYMENT_STRIPE_SECRET": "k"},
+        category=P.CREATOR_CATEGORY_GENERAL)
+    assert ad.provider == "stripe"
+    ad = P.configure_provider(
+        P.CREATOR_CHECKOUT, "cash_app",
+        {"PAYMENT_CASH_APP_SECRET": "k"},
+        category=P.CREATOR_CATEGORY_GENERAL)
+    assert ad.provider == "cash_app"
+    # unknown category is refused, not guessed
+    try:
+        P.configure_provider(
+            P.CREATOR_CHECKOUT, "segpay",
+            {"PAYMENT_SEGPAY_SECRET": "k"}, category="unknown")
+        raise SystemExit("unknown category accepted")
+    except P.AdapterError:
+        pass
     # unlock gate: only a server-verified payment record opens it
     make_user(client, "pay@x.com")
     from app.db import session

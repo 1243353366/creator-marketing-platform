@@ -80,3 +80,22 @@ deleted.
 - **Guard:** every scripted patch asserts the anchor exists
   before replacing (pattern used throughout this ledger's
   scripts). A failed assert is a loud, early, cheap error.
+
+## L7. Membership tested against the wrong kind of set
+
+- **Condition:** a policy gate that switches representation —
+  one branch's `allowed` holds FLOWS, another's holds PROVIDER
+  NAMES — while the membership check stays written for the
+  first kind.
+- **Symptom:** the gate refuses a permitted pairing (segpay for
+  adult checkout) — or, in the mirrored bug, would permit a
+  forbidden one.
+- **Cause:** writing `if flow not in allowed` where `allowed`
+  was a set of providers. The Oracle class in miniature: the
+  right check executed against the wrong target set (2026-10-23,
+  minutes after designing the sentinel for exactly this class).
+- **Guard:** the checkout branch now names its check explicitly
+  (`provider not in CHECKOUT_POLICY[category]`) instead of
+  reusing a shared condition; both permitted AND refused
+  pairings are asserted per category in the test suite, so
+  either direction of the bug fails a test.

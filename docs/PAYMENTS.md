@@ -19,7 +19,7 @@ legal advice. The code enforces it structurally in
 `app/payments.py:PROVIDER_FLOW_POLICY` — a provider refused for a
 flow cannot be configured for it, secret or not.
 
-| Provider | SaaS | Creator checkout | Payout | Notes |
+| Provider | SaaS | Creator checkout (general) | Creator checkout (adult) | Payout | Notes |
 |---|---|---|---|---|
 | Stripe | yes | NO | yes | restricts adult-content sales |
 | Segpay | - | candidate | candidate | apply for the exact model |
@@ -35,9 +35,21 @@ flow cannot be configured for it, secret or not.
 
 ## Fan-to-creator: options the CREATOR can use
 
-These are the creator's own payment choices, not our processors.
-We never touch this money; the creator connects their approved
-platform and we link out.
+The platform is category-neutral: people market business, art,
+courses, coaching, content - literally anything they want to
+market. Provider rules attach to the CREATOR'S CATEGORY, not to
+the platform. These are the creator's own payment choices, not
+our processors; we never touch this money, and the creator sets
+their own checkout link (https-only) for whatever they sell.
+
+- **general (unrestricted goods):** standard processors are
+  usually fine — Stripe, PayPal business, Cash App business
+  profile, Venmo business profile. Check each provider's terms,
+  taxes, and prohibited-goods lists; their rules still apply to
+  your specific business.
+- **adult content:** only processors whose published policy
+  explicitly permits adult content, with written approval for the
+  exact business model. See the matrix and citations below.
 
 | Option | Best use | Adult-content caveat |
 |---|---|---|
@@ -52,10 +64,10 @@ platform and we link out.
 | OnlyFans / Fansly / similar | subscriptions, tips, paid content | platform runs checkout and pays out via its own methods |
 
 **Practical recommendation for creators** (shown on the billing
-page): keep one approved creator platform for paid content, one
+page): for paid content, keep one approved creator platform, one
 verified bank payout method, and a second eligible payout option.
-Do not rely on Cash App or Venmo for adult-content transactions —
-their policies prohibit them.
+Adult creators: do not rely on Cash App or Venmo for
+adult-content transactions — their policies prohibit them.
 
 **Tips, gifts, and disguised purchases** (distinction verified
 against published policies 2026-10-23):

@@ -93,24 +93,43 @@ FLOWS = (SAAS_SUBSCRIPTION, CREATOR_CHECKOUT, CREATOR_PAYOUT)
 # policies AS OF 2026-10 (re-verify at integration time; this table
 # is a guardrail, not legal advice). A provider blocked for a flow
 # is refused structurally, not just by convention.
+# Flows a provider MAY be configured for OUTSIDE creator
+# checkout, per published policies AS OF 2026-10 (re-verify at
+# integration time; guardrail, not legal advice).
 PROVIDER_FLOW_POLICY = {
     "stripe": {SAAS_SUBSCRIPTION, CREATOR_PAYOUT},
-    # Stripe restricts adult-content sales: never CREATOR_CHECKOUT
-    # for adult creators.
-    "segpay": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
-    "ccbill": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
-    "verotel": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
-    # verify-first candidates: confirm availability, account
-    # eligibility, fees, and country coverage in writing before
-    # configuring (see docs/PAYMENTS.md)
-    "paxum": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
-    "skrill": {CREATOR_CHECKOUT, CREATOR_PAYOUT},
-    "cash_app": set(),     # prohibits adult content and related
-    "paypal": {SAAS_SUBSCRIPTION},  # prohibits adult digital
-    # content; even for the SaaS flow, prefer dedicated software
-    # processors.
+    "segpay": {CREATOR_PAYOUT},
+    "ccbill": {CREATOR_PAYOUT},
+    "verotel": {CREATOR_PAYOUT},
+    "paxum": {CREATOR_PAYOUT},
+    "skrill": {CREATOR_PAYOUT},
+    "cash_app": set(),
+    "paypal": {SAAS_SUBSCRIPTION},
     "venmo": set(),
     "wise": {CREATOR_PAYOUT},   # verify permitted purpose
+}
+
+# The platform is category-neutral: people market business, art,
+# courses - literally anything. Creator-checkout provider rules
+# are therefore PER CATEGORY, not global:
+#   general - unrestricted goods; standard processors permitted,
+#     subject to each provider's own terms (business profiles,
+#     taxes, prohibited-goods lists).
+#   adult - only processors whose published policy permits adult
+#     content, with written approval for the exact model (Cash
+#     App, Venmo, PayPal, Stripe all out; verified 2026-10-23).
+# Fail-closed default: an undeclared category gets ADULT rules,
+# the strictest. The registry never guesses a category.
+CREATOR_CATEGORY_ADULT = "adult"
+CREATOR_CATEGORY_GENERAL = "general"
+CREATOR_CATEGORIES = (CREATOR_CATEGORY_GENERAL,
+                      CREATOR_CATEGORY_ADULT)
+CHECKOUT_POLICY = {
+    CREATOR_CATEGORY_GENERAL: frozenset((
+        "stripe", "paypal", "cash_app", "venmo", "skrill",
+        "segpay", "ccbill", "verotel", "paxum")),
+    CREATOR_CATEGORY_ADULT: frozenset((
+        "segpay", "ccbill", "verotel", "paxum", "skrill")),
 }
 
 
@@ -138,18 +157,33 @@ class _Adapter:
 _ADAPTERS = {}
 
 
-def configure_provider(flow, provider, app_cfg):
+def configure_provider(flow, provider, app_cfg,
+                       category=CREATOR_CATEGORY_ADULT):
     """Bind a provider to a flow if (a) its policy permits that
-    flow and (b) the required credentials exist. Fail closed on
-    both counts."""
+    flow - for creator checkout, permits the CREATOR'S DECLARED
+    CATEGORY, defaulting to the strictest (adult) - and (b) the
+    required credentials exist. Fail closed on all counts."""
     if flow not in FLOWS:
         raise AdapterError(f"unknown flow {flow!r}")
-    allowed = PROVIDER_FLOW_POLICY.get(provider, set())
-    if flow not in allowed:
-        raise AdapterError(
-            f"provider {provider!r} is not permitted for flow "
-            f"{flow!r} under its published policy (see "
-            "docs/PAYMENTS.md)")
+    if flow == CREATOR_CHECKOUT:
+        if category not in CREATOR_CATEGORIES:
+            raise AdapterError(
+                f"unknown creator category {category!r}; declare "
+                "one of: " + ", ".join(CREATOR_CATEGORIES))
+        # checkout policy is provider-scoped: membership is by
+        # PROVIDER NAME, not by flow (flow is already known here)
+        if provider not in CHECKOUT_POLICY[category]:
+            raise AdapterError(
+                f"provider {provider!r} is not permitted for "
+                f"creator checkout in category {category!r} "
+                "under its published policy (see docs/PAYMENTS.md)")
+    else:
+        allowed = PROVIDER_FLOW_POLICY.get(provider, set())
+        if flow not in allowed:
+            raise AdapterError(
+                f"provider {provider!r} is not permitted for "
+                f"flow {flow!r} under its published policy (see "
+                "docs/PAYMENTS.md)")
     if not app_cfg.get(f"PAYMENT_{provider.upper()}_SECRET"):
         raise AdapterError(
             f"PAYMENT_{provider.upper()}_SECRET is not "

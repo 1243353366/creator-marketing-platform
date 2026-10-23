@@ -13,12 +13,15 @@ replay protection. No real transactions are simulated here.</p>
 provider's checkout session flow; until credentials are
 provisioned this page does not pretend to charge anything.</p>
 {% endif %}
-<h3>Your fan payments (your transactions, not ours)</h3>
-<p class="hint">Recommended setup for creators: one approved
-creator platform for paid content, one verified bank payout
-method, and a second eligible payout option. Do not rely on Cash
-App or Venmo for adult-content transactions — their policies
-prohibit them. A purchase relabeled as a "tip" is still a commercial
-transaction; sales belong on your approved platform. We do not
-run a tipping feature. Full options table:
+<h3>Your paywall, your transactions (we never touch them)</h3>
+<p class="hint">You set your own checkout link for whatever you
+market — content, products, services, courses, anything. If you
+sell unrestricted goods, standard processors (Stripe, PayPal
+business, Cash App business profile) are usually fine — check
+each provider's terms. If you market adult content, use a
+processor whose policy explicitly permits it (Segpay, CCBill,
+Verotel candidates); Cash App, Venmo, PayPal, and Stripe
+prohibit or restrict it. A purchase relabeled as a "tip" is
+still a commercial transaction. We do not run a tipping feature
+and never hold your money. Full options and policy citations:
 docs/PAYMENTS.md.</p></div>{% endblock %}
