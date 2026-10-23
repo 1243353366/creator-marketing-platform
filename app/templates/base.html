@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport"
+ content="width=device-width, initial-scale=1">
+<title>Creator Marketing Platform</title>
+<style>
+body{font-family:system-ui;margin:0;background:#f6f7f9;color:#111}
+header{background:#111;color:#fff;padding:12px 20px;
+ display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+header a{color:#9fd;margin-right:14px;text-decoration:none}
+main{max-width:860px;margin:24px auto;padding:0 16px}
+.card{background:#fff;border:1px solid #ddd;border-radius:8px;
+ padding:16px;margin-bottom:16px}
+input,select,textarea{width:100%;padding:8px;margin:4px 0 12px;
+ box-sizing:border-box;border:1px solid #bbb;border-radius:4px}
+button{background:#111;color:#fff;border:0;padding:10px 16px;
+ border-radius:4px;cursor:pointer}
+.flash{background:#fde;color:#900;padding:8px 12px;
+ border-radius:4px}
+.muted{color:#666;font-size:14px}
+.ok{color:#080}.err{color:#900}
+table{width:100%;border-collapse:collapse}
+td,th{border-bottom:1px solid #ddd;padding:6px;text-align:left}
+</style></head><body>
+<header><strong>Creator Marketing Platform</strong>
+{% if user %}
+<a href="{{ url_for('ui.dashboard') }}">Dashboard</a>
+<a href="{{ url_for('ui.brand') }}">Brand</a>
+<a href="{{ url_for('ui.seo_page_list') }}">SEO</a>
+<a href="{{ url_for('ui.review') }}">Reviews</a>
+<a href="{{ url_for('ui.consent_page') }}">Consent</a>
+<a href="{{ url_for('ui.payments_page') }}">Billing</a>
+<form method="post" action="{{ url_for('ui.logout') }}"
+ style="margin:0">
+<input type="hidden" name="csrf"
+ value="{{ session.get('csrf','') }}">
+<button type="submit">Log out</button></form>
+{% else %}
+<a href="{{ url_for('ui.login') }}">Log in</a>
+<a href="{{ url_for('ui.signup') }}">Sign up</a>
+{% endif %}</header>
+<main>
+{% for m in get_flashed_messages() %}
+<div class="flash">{{ m }}</div>{% endfor %}
+{% block body %}{% endblock %}</main></body></html>

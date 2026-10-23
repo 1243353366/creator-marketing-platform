@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block body %}
+<div class="card"><h1>Your campaigns</h1>
+<form method="post" action="{{ url_for('ui.campaign_new') }}">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input name="name" placeholder="Campaign name" required>
+<select name="channel">
+ <option>email</option><option>social</option>
+ <option>landing_page</option></select>
+<select name="objective">
+ <option>subscriptions</option><option>tips</option>
+ <option>content_sales</option></select>
+<button>Create</button></form></div>
+{% for c in campaigns %}
+<div class="card"><strong>{{ c.name }}</strong>
+ <span class="muted">{{ c.channel }} / {{ c.objective }}
+ / {{ c.status }}</span>
+ <a href="{{ url_for('ui.campaign_view', cid=c.id) }}">Open</a>
+</div>{% else %}<p class="muted">No campaigns yet.</p>{% endfor %}
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}
+<div class="card"><h1>Marketing that shows its evidence</h1>
+<p class="muted">Configure your brand voice and intensity,
+generate scripts and A/B variants, track performance under
+explicit consent, audit SEO health, and get monthly
+improvement proposals with honest statistics.</p>
+{% if not user %}<p>
+<a href="{{ url_for('ui.signup') }}">Create an account</a></p>{% endif %}
+</div>{% endblock %}

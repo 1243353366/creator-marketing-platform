@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block body %}<div class="card">
+<h1>Consent</h1>
+<form method="post">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<p><label><input type="checkbox" name="analytics"
+ {% if analytics %}checked{% endif %}> Performance analytics
+ (required to record campaign metrics)</label></p>
+<p><label><input type="checkbox" name="training"
+ {% if training %}checked{% endif %}> Model training / fine-tuning
+ (separate from analytics; never implied)</label></p>
+<button>Save consent</button></form>
+<p class="muted">Withdrawing analytics consent immediately
+deletes your recorded metrics. Training use never happens
+without its own explicit grant.</p></div>{% endblock %}

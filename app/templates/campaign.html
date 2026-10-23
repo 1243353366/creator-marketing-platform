@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% block body %}
+<div class="card"><h1>{{ campaign.name }}</h1>
+<p class="muted">{{ campaign.channel }} / {{ campaign.objective }}
+ / status: <strong>{{ campaign.status }}</strong></p>
+{% if error %}<p class="flash">Generation failed: {{ error }}
+ — nothing was fabricated; try again or edit your
+ profile.</p>{% endif %}
+<form method="post"
+ action="{{ url_for('ui.campaign_generate', cid=campaign.id) }}">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<button>Generate A/B variants</button>
+{% if campaign.status == 'generated' %}
+<button formaction="{{ url_for('ui.campaign_confirm', cid=campaign.id) }}"
+ formmethod="post">Confirm publication (explicit consent
+ to publish)</button>{% endif %}</form></div>
+{% for v in variants %}
+<div class="card"><strong>Variant {{ v.label }}</strong>
+ <span class="muted">source: {{ v.source }}{% if v.source ==
+ 'template' %} (deterministic local template, not AI
+ output){% endif %}</span>
+{% set c = v.content_json | from_json %}
+<p><strong>{{ c.hook }}</strong></p><p>{{ c.caption }}</p>
+<p><em>{{ c.cta }}</em></p></div>
+{% else %}{% if not error %}<p class="muted">
+No variants yet.</p>{% endif %}{% endfor %}
+<div class="card"><h3>Record performance</h3>
+<form method="post"
+ action="{{ url_for('ui.add_metric', cid=campaign.id) }}">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<select name="variant_label"><option>A</option><option>B</option></select>
+<input name="impressions" type="number" min="0" placeholder="Impressions">
+<input name="clicks" type="number" min="0" placeholder="Clicks">
+<input name="conversions" type="number" min="0" placeholder="Conversions">
+<input name="revenue_cents" type="number" min="0" placeholder="Revenue (cents)">
+<input name="spend_cents" type="number" min="0" placeholder="Spend (cents)">
+<input name="source" placeholder="Source (manual/import)">
+<button>Record</button></form>
+<p class="muted">Recording requires analytics consent and is
+ stored tenant-scoped.</p></div>
+{% endblock %}

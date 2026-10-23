@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block body %}<div class="card">
+<h1>Monthly improvement reviews</h1>
+<form method="post">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input name="period" placeholder="2026-10" pattern="\d{4}-\d{2}"
+ required>
+<button>Build proposal</button></form>
+<p class="muted">Idempotent: rerunning a period returns the
+existing proposal. No change is applied without explicit
+approval below.</p></div>
+{% for r in reviews %}
+<div class="card"><h3>{{ r.period }} — {{ r.status }}</h3>
+<p class="muted">Data points: {{ r.proposal.data_points }};
+ comparisons: {{ r.proposal.comparisons | length }}</p>
+{% for c in r.proposal.comparisons %}
+<p><strong>{{ c.channel }}/{{ c.objective }}</strong>:
+{{ c.note }} {{ c.consider if c.consider else '' }}</p>
+{% endfor %}
+<p class="muted">Limitations: {{ r.proposal.limitations | join('; ') }}</p>
+{% if r.status == 'proposed' %}
+<form method="post"
+ action="{{ url_for('ui.review_decide', rid=r.id) }}">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<button name="decision" value="approved">Approve</button>
+<button name="decision" value="rejected">Reject</button>
+</form>{% endif %}</div>
+{% else %}<p class="muted">No reviews yet.</p>{% endfor %}
+{% endblock %}

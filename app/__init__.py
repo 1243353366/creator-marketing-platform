@@ -31,6 +31,8 @@ def create_app(config=None):
         raise RuntimeError(
             "SECRET_KEY is required (>=16 chars). Refusing to boot "
             "with an insecure default.")
+    import json
+    app.jinja_env.filters["from_json"] = json.loads
     from .db import init_db
     init_db(url)
     from .routes import register

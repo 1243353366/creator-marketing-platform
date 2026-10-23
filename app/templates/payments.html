@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block body %}<div class="card">
+<h1>Billing &amp; subscriptions</h1>
+{% if not status.configured %}
+<p class="flash">Payment provider is not configured.</p>
+<p>{{ status.note }}</p>
+<p class="muted">Setup: create a provider account whose terms
+permit this business model, obtain approval, set
+PAYMENT_WEBHOOK_SECRET, and register the webhook endpoint
+/webhook/payment. The webhook verifies HMAC signatures with
+replay protection. No real transactions are simulated here.</p>
+{% else %}<p class="ok">Provider webhook configured.</p>
+<p class="muted">Subscription management UI requires the
+provider's checkout session flow; until credentials are
+provisioned this page does not pretend to charge anything.</p>
+{% endif %}</div>{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block body %}<div class="card">
+<h1>Sitemap generator / validator</h1>
+<form method="post">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<textarea name="urls" rows="6"
+ placeholder="One public URL per line"></textarea>
+<button>Generate</button></form>
+{% if problems %}{% for p in problems %}
+<p class="flash">{{ p }}</p>{% endfor %}{% endif %}
+{% if xml %}<h3>Generated sitemap</h3>
+<pre style="background:#eee;padding:8px;overflow:auto">{{ xml }}</pre>
+<p class="muted">Submitting this file to a search engine is
+your choice; crawling and indexing are never guaranteed.</p>
+{% endif %}</div>{% endblock %}

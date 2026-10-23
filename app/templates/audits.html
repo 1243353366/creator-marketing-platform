@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block body %}<div class="card">
+<h1>SEO audit history</h1>
+<table><tr><th>URL</th><th>HTTP</th><th>Issues</th><th>When</th>
+</tr>
+{% for a in audits %}<tr><td><code>{{ a.url }}</code></td>
+<td>{{ a.status }}</td><td>
+{% for i in a.issues %}<span class="err">{{ i.code }}</span>
+{% else %}<span class="ok">none</span>{% endfor %}</td>
+<td>{{ a.at }}</td></tr>{% else %}
+<tr><td colspan="4" class="muted">No audits yet.</td></tr>
+{% endfor %}</table></div>{% endblock %}

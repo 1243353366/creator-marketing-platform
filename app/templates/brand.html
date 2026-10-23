@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block body %}<div class="card">
+<h1>Brand profile</h1>
+<form method="post">
+<input type="hidden" name="csrf" value="{{ session.get('csrf','') }}">
+<input name="display_name" placeholder="Creator / brand name"
+ value="{{ profile.display_name if profile else '' }}" required>
+<input name="voice" placeholder="Voice (e.g. witty, warm)"
+ value="{{ profile.voice if profile else '' }}" required>
+<textarea name="audience" rows="2"
+ placeholder="Target audience">{{ profile.audience if profile else '' }}</textarea>
+<label>Intensity 1 (conservative) to 5 (highly provocative):
+<input name="intensity" type="number" min="1" max="5"
+ value="{{ profile.intensity if profile else 2 }}"></label>
+<textarea name="restrictions" rows="2"
+ placeholder="Topics to avoid">{{ profile.restrictions if profile else '' }}</textarea>
+<input name="cta" placeholder="Call to action"
+ value="{{ profile.cta if profile else '' }}">
+<input name="conversion_goal" placeholder="Conversion goal"
+ value="{{ profile.conversion_goal if profile else '' }}">
+<input name="channels" placeholder="Channels"
+ value="{{ profile.channels if profile else '' }}">
+<button>Save</button></form></div>{% endblock %}
