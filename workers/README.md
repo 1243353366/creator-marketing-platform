@@ -3,7 +3,8 @@
 The live worker at https://creator-marketing-platform.aadishankar1999.workers.dev
 was originally deployed with an in-memory store: POST and GET could land on
 different edge isolates, so consent granted in one request was invisible to
-the next. This edition replaces the in-memory Maps with Cloudflare D1, making
+the next. This edition replaces the in-memory Maps with a strongly consistent
+Durable Object (SQLite storage), making
 consent gating, tenant isolation, script storage, and pipeline idempotency
 actually work across isolates. It is a faithful port of the deployed API
 surface (`live-worker-export.js`, fetched from the live script via the API).
@@ -15,9 +16,13 @@ AI_PROVIDER_URL/AI_PROVIDER_KEY secrets exist) -> Workers AI
 
 ## Deploy (requires a Workers-write credential)
 
-    npx wrangler d1 create creator-marketing-platform   # skip if exists
-    npx wrangler d1 execute creator-marketing-platform --remote --file schema.sql
     npx wrangler deploy
+
+The store ships inside the script (a Durable Object class) - no separate
+D1/KV permission or provisioning step is needed. DO was chosen over KV
+because KV is eventually consistent (consent grants invisible up to 60s
+on other edges) and over D1 because D1 requires a separate Edit permission.
+A probe DO was verified executing on this account's free plan first.
 
 `wrangler.jsonc` uses the SAME worker name as the live deployment, so this
 replaces the running worker and keeps its enabled workers.dev route. D1 is

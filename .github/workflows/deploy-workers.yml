@@ -1,4 +1,4 @@
-name: Deploy Workers edition (D1)
+name: Deploy Workers edition (Durable Objects)
 
 on:
   workflow_dispatch:
@@ -13,17 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: Create D1 database (no-op if it exists)
-        run: npx wrangler@latest d1 create creator-marketing-platform || echo "already exists"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Apply schema
-        run: npx wrangler@latest d1 execute creator-marketing-platform --remote --file workers/schema.sql
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Deploy worker (replaces live script, keeps workers.dev route)
+      - name: Deploy worker (DO store ships with the script)
         run: npx wrangler@latest deploy
         working-directory: workers
         env:
@@ -37,20 +27,20 @@ jobs:
           curl -sf "$WORKER_URL/healthz" | grep -q '"status": "ok"' || { echo "FAIL: healthz"; exit 1; }
           echo "-- consent persists across requests (the bug this deploy fixes) --"
           curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"analytics": true}' "$WORKER_URL/api/consent" | grep -q '"analyticsConsent": true' || { echo "FAIL: consent grant"; exit 1; }
-          curl -sf -H "X-Tenant-Id: smoke" "$WORKER_URL/api/analytics" | grep -q '"consentGranted": true' || { echo "FAIL: analytics after consent (D1 not working)"; exit 1; }
+          curl -sf -H "X-Tenant-Id: smoke" "$WORKER_URL/api/analytics" | grep -q '"consentGranted": true' || { echo "FAIL: analytics after consent (store not working)"; exit 1; }
           echo "-- pipeline idempotent --"
           curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"period":"2026-10"}' "$WORKER_URL/api/pipeline/run" | grep -q '"status": "completed"' || { echo "FAIL: pipeline run"; exit 1; }
           curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"period":"2026-10"}' "$WORKER_URL/api/pipeline/run" | grep -q '"status": "already_run"' || { echo "FAIL: pipeline idempotency"; exit 1; }
           echo "-- tenant isolation --"
           curl -sf -H "X-Tenant-Id: other-tenant" "$WORKER_URL/api/scripts" | grep -q '"count": 0' || { echo "FAIL: isolation"; exit 1; }
           echo "-- SSRF wall --"
-          curl -s -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"url":"http://127.0.0.1:8080/admin"}' "$WORKER_URL/api/seo-audit" | grep -qE 'Blocked|SEO audit failed|statusCode\": 403' || { echo "FAIL: SSRF not blocked"; exit 1; }
+          curl -s -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"url":"http://127.0.0.1:8080/admin"}' "$WORKER_URL/api/seo-audit" | grep -qE 'Blocked|SEO audit failed|statusCode\\": 403' || { echo "FAIL: SSRF not blocked"; exit 1; }
           echo "ALL SMOKE TESTS PASSED"
       - name: Diagnose failure
         if: failure()
         run: |
           echo "Deploy failed. Known causes:"
-          echo "1. 'No access to the specified resource' -> CLOUDFLARE_API_TOKEN secret lacks Workers edit (use 'Edit Cloudflare Workers' template)."
-          echo "2. D1 creation denied -> token needs D1 edit permission."
-          echo "3. Smoke failures after a green deploy -> schema missing or DB binding wrong."
+          echo "1. 'No access to the specified resource' -> CLOUDFLARE_API_TOKEN secret lacks Workers Scripts:Edit."
+          echo "2. 'Durable Objects ... not supported' / plan errors -> free plan limits; check dashboard."
+          echo "3. Smoke failures after a green deploy -> DO binding or Store class regression; see workers/README.md."
           echo "Full logs are in the failed steps above."

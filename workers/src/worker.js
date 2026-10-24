@@ -1,10 +1,36 @@
-// Creator Marketing Platform - Workers edition with D1 persistence.
-// Faithful port of the live worker (workers/live-worker-export.js) with the
-// in-memory Maps replaced by D1 queries. Same API surface, same gates:
-// tenant header auth, consent enforcement, SSRF-hardened audit, content
-// policy, labeled template fallback, idempotent pipeline, tenant isolation.
+// Creator Marketing Platform - Workers edition with Durable Objects persistence.
+// Faithful port of the live worker (workers/live-worker-export.js). The
+// in-memory Maps are replaced by a single strongly-consistent Durable Object
+// (SQLite storage, ships with the script - no separate database permission
+// needed). Same API surface, same gates: tenant header auth, consent
+// enforcement, SSRF-hardened audit, content policy, labeled template
+// fallback, idempotent pipeline, tenant isolation.
+//
+// Why DO and not KV: KV is eventually consistent - a consent grant could be
+// invisible for up to 60s on another edge, which re-breaks the consent gate.
+// DO storage is strongly consistent and free-plan eligible (verified live:
+// a probe DO answered on this account before this deploy).
+import { DurableObject } from 'cloudflare:workers';
+
+export class Store extends DurableObject {
+  constructor(ctx, env) { super(ctx, env); this.ctx = ctx; }
+  async getTenant(t) {
+    return (await this.ctx.storage.get('tenant:' + t)) || { brandVoice: null, intensity: 'balanced', analyticsConsent: false, trainingConsent: false };
+  }
+  async putTenant(t, data) { await this.ctx.storage.put('tenant:' + t, data); return data; }
+  async putScript(s) { await this.ctx.storage.put('script:' + s.tenantId + ':' + s.createdAt + ':' + s.id, s); }
+  async listScripts(t) {
+    const l = await this.ctx.storage.list({ prefix: 'script:' + t + ':' });
+    return [...l.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+  async getPipeline(k) { return await this.ctx.storage.get('pipeline:' + k) || null; }
+  async putPipeline(k, v) { await this.ctx.storage.put('pipeline:' + k, v); }
+  async putAudit(a) { await this.ctx.storage.put('audit:' + a.tenantId + ':' + a.createdAt + ':' + a.auditId, a); }
+}
+
 export default {
   async fetch(request, env) {
+    const store = env.STORE.get(env.STORE.idFromName('store'));
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -17,21 +43,8 @@ export default {
       return json({ error: message, ...(details ? { details } : {}) }, status);
     }
 
-    // ---------- D1-backed tenant store ----------
-    async function getTenant(tenantId) {
-      const row = await env.DB
-        .prepare('SELECT tenant_id, brand_voice, intensity, analytics_consent, training_consent FROM tenants WHERE tenant_id = ?')
-        .bind(tenantId)
-        .first();
-      if (row) {
-        return {
-          brandVoice: row.brand_voice, intensity: row.intensity,
-          analyticsConsent: !!row.analytics_consent, trainingConsent: !!row.training_consent,
-        };
-      }
-      // Defaults, not persisted until a write happens (matches old getTenant).
-      return { brandVoice: null, intensity: 'balanced', analyticsConsent: false, trainingConsent: false };
-    }
+    // ---------- DO-backed tenant store (strongly consistent) ----------
+    const getTenant = (tenantId) => store.getTenant(tenantId);
 
     function genId(prefix) {
       return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
@@ -185,7 +198,7 @@ export default {
     if (path === '/' && method === 'GET') {
       return json({
         name: 'Creator Marketing Platform', version: '1.1.0',
-        persistence: 'cloudflare-d1',
+        persistence: 'durable-object (strongly consistent)',
         source: 'https://github.com/1243353366/creator-marketing-platform',
         endpoints: {
           'GET /healthz': 'Health check',
@@ -219,10 +232,7 @@ export default {
       if (body.intensity && !validIntensities.includes(body.intensity)) return fail('intensity must be: ' + validIntensities.join(', '));
       const intensity = body.intensity || 'balanced';
       const existing = await getTenant(tenantId);
-      await env.DB
-        .prepare('INSERT INTO tenants (tenant_id, brand_voice, intensity, analytics_consent, training_consent, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(tenant_id) DO UPDATE SET brand_voice = excluded.brand_voice, intensity = excluded.intensity')
-        .bind(tenantId, body.voice, intensity, existing.analyticsConsent ? 1 : 0, existing.trainingConsent ? 1 : 0, new Date().toISOString())
-        .run();
+      await store.putTenant(tenantId, { brandVoice: body.voice, intensity, analyticsConsent: existing.analyticsConsent, trainingConsent: existing.trainingConsent });
       return json({ tenantId, brandVoice: body.voice, intensity, updated: true });
     }
 
@@ -238,19 +248,13 @@ export default {
       if (!policy.passed) return fail('Content policy violation: ' + policy.reason, 422);
       const scriptId = genId('script');
       const createdAt = new Date().toISOString();
-      await env.DB
-        .prepare('INSERT INTO scripts (id, tenant_id, topic, platform, content, source, labeled, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(scriptId, tenantId, body.topic, platform, result.content, result.source, result.labeled ? 1 : 0, result.note, createdAt)
-        .run();
-      return json({ id: scriptId, tenantId, topic: body.topic, platform, content: result.content, source: result.source, labeled: result.labeled, note: result.note, createdAt });
+      const script = { id: scriptId, tenantId, topic: body.topic, platform, content: result.content, source: result.source, labeled: result.labeled, note: result.note, createdAt };
+      await store.putScript(script);
+      return json(script);
     }
 
     if (path === '/api/scripts' && method === 'GET') {
-      const { results } = await env.DB
-        .prepare('SELECT id, tenant_id, topic, platform, content, source, labeled, note, created_at FROM scripts WHERE tenant_id = ? ORDER BY created_at DESC')
-        .bind(tenantId)
-        .all();
-      const scripts = (results || []).map(r => ({ id: r.id, tenantId: r.tenant_id, topic: r.topic, platform: r.platform, content: r.content, source: r.source, labeled: !!r.labeled, note: r.note, createdAt: r.created_at }));
+      const scripts = await store.listScripts(tenantId);
       return json({ tenantId, count: scripts.length, scripts });
     }
 
@@ -260,10 +264,7 @@ export default {
       const existing = await getTenant(tenantId);
       const analyticsConsent = !!body.analytics;
       const trainingConsent = !!body.training;
-      await env.DB
-        .prepare('INSERT INTO tenants (tenant_id, brand_voice, intensity, analytics_consent, training_consent, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(tenant_id) DO UPDATE SET analytics_consent = excluded.analytics_consent, training_consent = excluded.training_consent')
-        .bind(tenantId, existing.brandVoice, existing.intensity, analyticsConsent ? 1 : 0, trainingConsent ? 1 : 0, new Date().toISOString())
-        .run();
+      await store.putTenant(tenantId, { brandVoice: existing.brandVoice, intensity: existing.intensity, analyticsConsent, trainingConsent });
       return json({ tenantId, analyticsConsent, trainingConsent, metricsDeleted: existing.analyticsConsent && !analyticsConsent });
     }
 
@@ -305,10 +306,7 @@ export default {
       if (!results.checks.hasH1) results.recommendations.push('Add an <h1> heading');
       if (!results.checks.hasCanonical) results.recommendations.push('Add a canonical link tag');
       if (!results.checks.hasOgTitle) results.recommendations.push('Add og:title meta tag for social sharing');
-      await env.DB
-        .prepare('INSERT INTO audits (id, tenant_id, url, status_code, result, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(auditId, tenantId, body.url, resp.status, JSON.stringify(results.checks), results.createdAt)
-        .run();
+      await store.putAudit({ auditId, tenantId, url: body.url, statusCode: resp.status, checks: results.checks, createdAt: results.createdAt });
       return json(results);
     }
 
@@ -316,11 +314,8 @@ export default {
       const body = await request.json().catch(() => null);
       const period = (body && body.period) || new Date().toISOString().slice(0, 7);
       const periodKey = tenantId + ':' + period;
-      const existing = await env.DB
-        .prepare('SELECT result FROM pipeline_runs WHERE period_key = ?')
-        .bind(periodKey)
-        .first();
-      if (existing) return json({ periodKey, status: 'already_run', result: JSON.parse(existing.result) });
+      const existing = await store.getPipeline(periodKey);
+      if (existing) return json({ periodKey, status: 'already_run', result: existing });
       const tenant = await getTenant(tenantId);
       if (!tenant.analyticsConsent) return fail('Pipeline requires analytics consent. POST /api/consent with { analytics: true } first.', 403);
       const campaigns = [{ id: 'campaign_a', clicks: 45, impressions: 1000 }, { id: 'campaign_b', clicks: 52, impressions: 1000 }];
@@ -328,10 +323,7 @@ export default {
       scored.sort((a, b) => b.wilson - a.wilson);
       const winner = scored.length > 1 && scored[0].wilson > scored[1].wilson ? scored[0].campaignId : null;
       const result = { periodKey, tenantId, period, status: 'completed', campaignsCompared: scored.length, scores: scored, winner, note: winner ? 'Winner: ' + winner + ' (Wilson: ' + scored[0].wilson.toFixed(4) + ')' : 'No statistically significant winner. No changes without approval.', requiresApproval: true, approved: false, runAt: new Date().toISOString() };
-      await env.DB
-        .prepare('INSERT INTO pipeline_runs (period_key, tenant_id, period, result, run_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(periodKey, tenantId, period, JSON.stringify(result), result.runAt)
-        .run();
+      await store.putPipeline(periodKey, result);
       return json(result);
     }
 
@@ -339,12 +331,9 @@ export default {
     if (pipelineMatch && method === 'GET') {
       const period = pipelineMatch[1];
       const periodKey = tenantId + ':' + period;
-      const row = await env.DB
-        .prepare('SELECT result FROM pipeline_runs WHERE period_key = ?')
-        .bind(periodKey)
-        .first();
+      const row = await store.getPipeline(periodKey);
       if (!row) return fail('No pipeline run found for this period', 404);
-      return json(JSON.parse(row.result));
+      return json(row);
     }
 
     return fail('Not found', 404);
