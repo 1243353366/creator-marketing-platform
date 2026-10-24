@@ -128,7 +128,8 @@ class Variant(Base):
     __table_args__ = (
         UniqueConstraint("campaign_id", "label",
                          name="uq_variant_label"),
-        CheckConstraint(source.in_(["provider", "template"]),
+        CheckConstraint(source.in_(
+            ["provider", "template", "bridge-ai"]),
                         name="ck_variant_source"),
     )
 
@@ -140,7 +141,10 @@ class GenerationLog(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True)
     campaign_id: Mapped[str] = mapped_column(String(32), index=True)
     provider: Mapped[str] = mapped_column(String(32))
-    status: Mapped[str] = mapped_column(String(16))
+    # 32 chars: the ck_gen_status allowlist already promised
+    # provider_unavailable (20 chars); 16 was too narrow to
+    # hold statuses the constraint itself permits
+    status: Mapped[str] = mapped_column(String(32))
     detail: Mapped[str] = mapped_column(Text, default="")
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                          default=_now, index=True)

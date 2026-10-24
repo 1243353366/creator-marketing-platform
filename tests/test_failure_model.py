@@ -32,7 +32,12 @@ from sqlalchemy import create_engine, inspect
 
 def schema(engine):
     insp = inspect(engine)
-    return {t: sorted(c["name"] for c in insp.get_columns(t))
+    # tables + columns + check constraints: migrations can
+    # change any of the three (a pure constraint migration
+    # once looked like a no-op to a columns-only snapshot)
+    return {t: (sorted(c["name"] for c in insp.get_columns(t)),
+                sorted((c["name"], c["sqltext"]) for c in
+                       insp.get_check_constraints(t)))
             for t in insp.get_table_names()
             if t != "alembic_version"}
 
@@ -49,8 +54,18 @@ eng.dispose()
 assert again == full, "re-upgrade drifted from head"
 sys.path.insert(0, "")
 from app.db import Base
-expected = {t.name: sorted(c.name for c in t.columns)
-            for t in Base.metadata.sorted_tables}
+from sqlalchemy import CheckConstraint
+# model parity: columns + check constraint NAMES only - the
+# recovery identity check above proved expressions round-trip,
+# and metadata sqltext differs textually from inspector output
+# (postgres normalizes IN lists to ANY(ARRAY[...]))
+expected = {
+    t.name: (sorted(c.name for c in t.columns),
+             sorted(c.name for c in t.constraints
+                    if isinstance(c, CheckConstraint)))
+    for t in Base.metadata.sorted_tables}
+again = {t: (cols, [n for n, _ in checks])
+         for t, (cols, checks) in again.items()}
 assert expected == again, "schema disagrees with app models"
 print("rollback drill: schema identical after recovery")
 """

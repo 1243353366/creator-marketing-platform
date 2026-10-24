@@ -9,6 +9,8 @@ import re
 import socket
 import urllib.error
 import urllib.request
+
+from . import workers_bridge
 from datetime import datetime, timedelta, timezone
 
 from .db import session
@@ -160,6 +162,8 @@ def generate(campaign_id, user_id, app_cfg):
         raise GenerationError("rejected", "generation rate limit")
     payload = _profile_payload(profile, campaign)
     provider_out = _call_provider(app_cfg, payload)
+    bridge_on = (provider_out is None
+                 and bool(app_cfg.get("WORKERS_BRIDGE_URL")))
     variants = []
     for label in ("A", "B"):
         if provider_out is not None:
@@ -174,6 +178,25 @@ def generate(campaign_id, user_id, app_cfg):
                                       f"variant {label}: "
                                       + "; ".join(errors))
             source = "provider"
+        elif bridge_on:
+            # live Workers edition (bridge): failure raises -
+            # never a silent template swap
+            try:
+                bridged = workers_bridge.bridge_generate(
+                    app_cfg, payload, user_id)
+            except workers_bridge.BridgeError as exc:
+                _log(db, user_id, campaign_id, "bridge-ai",
+                     exc.status, exc.detail)
+                raise GenerationError(
+                    exc.status, f"bridge: {exc.detail}") from exc
+            data, errors = validate_output(bridged)
+            if errors:
+                _log(db, user_id, campaign_id, "bridge-ai",
+                     "rejected", "; ".join(errors))
+                raise GenerationError("rejected",
+                                      f"variant {label}: "
+                                      + "; ".join(errors))
+            source = "bridge-ai"
         else:
             data = template_variant(profile, campaign, label)
             source = "template"
@@ -184,9 +207,9 @@ def generate(campaign_id, user_id, app_cfg):
         db.add(row)
         variants.append(row)
     campaign.status = "generated"
-    _log(db, user_id, campaign_id,
-         "provider" if provider_out is not None else "template",
-         "ok")
+    engine = ("provider" if provider_out is not None
+              else "bridge-ai" if bridge_on else "template")
+    _log(db, user_id, campaign_id, engine, "ok")
     return variants
 
 
