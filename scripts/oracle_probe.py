@@ -101,9 +101,21 @@ try:
            data={"csrf": tok_a})
     a.post(f"/campaign/{cid}/confirm",
            data={"csrf": tok_a})
-    # a review request
-    a.post("/review", data={"csrf": tok_a,
-                            "content": A_MARK})
+    # a monthly review: needs consent granted and a period -
+    # an earlier version posted a nonexistent "content" field,
+    # the review never got created, and the review-IDOR attacks
+    # below ran against objects that did not exist (vacuous
+    # false-green; same class as the L5 regex lesson)
+    a.post("/consent", data={"csrf": tok_a, "analytics": "on"})
+    a.post("/review", data={"csrf": tok_a, "period": "2026-10"})
+    review_page = a.get("/review").get_data(as_text=True)
+    rids = sorted(set(re.findall(
+        r"/review/([0-9a-f-]+)/(?:decide|lifecycle)",
+        review_page)))
+    if not rids:
+        failures.append("A could not create/find a review to "
+                        "probe with (probe setup broken)")
+        sys.exit(1)  # never continue with skipped attacks
 
     # --- 1. IDOR: B requests A's objects by id ---------------
     b = new_client()
@@ -126,7 +138,31 @@ try:
                     r2.get_data(as_text=True):
                 failures.append(
                     f"IDOR: B sees A's data via {label}")
-    for rid in ("1", "2"):
+    # record A's state before the attacks: the docstring
+    # promises no state change on A's objects, so verify it
+    from app.db import session as oracle_db
+    from app.models import Campaign, MonthlyReview, Variant
+
+    def auth_id_of(client):
+        with client.session_transaction() as sess:
+            tok = sess.get("token", "")
+        from app import auth
+        u, _ = auth.user_for_token(tok)
+        return u.id
+
+    snap = oracle_db()
+    a_uid = auth_id_of(a)
+    a_status = snap.query(Campaign).filter_by(
+        name=A_MARK).one().status
+    a_variants = snap.query(Variant).filter_by(
+        campaign_id=cid).count()
+    a_review_states = {
+        r.id: r.status for r in
+        snap.query(MonthlyReview).filter_by(
+            user_id=a_uid).all()}
+    snap.close()
+
+    for rid in rids:  # discovered ids, never guessed
         for path, label in (
             (f"/review/{rid}/lifecycle",
              "advance lifecycle of A's review"),
@@ -137,6 +173,27 @@ try:
             if r.status_code == 200 and A_MARK in \
                     r.get_data(as_text=True):
                 failures.append(f"IDOR: {label}")
+
+    # --- the docstring's promise, verified after the attacks --
+    snap = oracle_db()
+    c_now = snap.query(Campaign).filter_by(name=A_MARK).one()
+    if c_now.status != a_status:
+        failures.append(
+            f"STATE: A's campaign status changed "
+            f"{a_status!r} -> {c_now.status!r}")
+    v_now = snap.query(Variant).filter_by(
+        campaign_id=cid).count()
+    if v_now != a_variants:
+        failures.append(
+            f"STATE: A's campaign now has {v_now} variants "
+            f"(was {a_variants})")
+    for r in snap.query(MonthlyReview).filter_by(
+            user_id=a_uid).all():
+        if a_review_states.get(r.id) != r.status:
+            failures.append(
+                f"STATE: A's review {r.id} changed "
+                f"{a_review_states.get(r.id)!r} -> {r.status!r}")
+    snap.close()
 
     # --- 2. cross-tenant leakage on list pages ---------------
     for path in ("/dashboard", "/brand", "/review", "/seo",

@@ -21,6 +21,7 @@ Exit codes: 0 = parity, 1 = drift (with the diff printed).
 Used in CI on every push; locally via scripts/check_schema_parity.py.
 """
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -30,11 +31,40 @@ os.environ.setdefault("PGINSTALL", "/app/pginstall")
 from pgserver import PostgresServer  # noqa: E402
 
 
+def _canon_clause(clause):
+    """Canonical form for a check clause.
+
+    Postgres renders the SAME constraint differently depending
+    on which path created it: model DDL arrives as
+    (('ok'::character varying)::text, ...) while literal
+    migration SQL becomes ARRAY['ok'::character varying, ...].
+    Comparing raw text false-alarms on equivalent constraints
+    (observed 2026-10-24: ck_gen_status drifted textually while
+    semantically identical, blocking CI on a green migration).
+
+    Normalization drops cast noise and punctuation and compares
+    sorted token multisets (literals, identifiers, keywords,
+    operators). Fails closed: a real difference - an allowlist
+    value, a column, = vs <>, IN vs NOT IN - survives
+    normalization and still reports drift.
+    """
+    c = clause.lower()
+    # drop casts entirely (not counted as tokens): postgres
+    # inserts a DIFFERENT NUMBER of casts per creation path
+    # (('ok'::character varying)::text has two, 'ok'::character
+    # varying has one), and casts never change constraint
+    # semantics. Literals, identifiers, keywords, and operators
+    # are the compared multiset.
+    c = re.sub(r"::[a-z_]+(?:\s+[a-z_]+)*(\[\])?", " ", c)
+    toks = re.findall(r"'[^']*'|[a-z_0-9]+|[<>=!]+", c)
+    return " ".join(sorted(toks))
+
+
 def introspect(url):
     from sqlalchemy import create_engine, text
     eng = create_engine(url)
     # alembic_version is migration bookkeeping, not product schema
-    out = {"tables": {}, "checks": set()}
+    out = {"tables": {}, "checks": {}}
     SKIP = {"alembic_version"}
     with eng.connect() as c:
         rows = c.execute(text(
@@ -55,8 +85,9 @@ def introspect(url):
         for t, clause in rows:
             if t in SKIP:
                 continue
-            clause = " ".join(clause.split())
-            out["checks"].add(f"{t}: {clause}")
+            canon = _canon_clause(" ".join(clause.split()))
+            # canon -> raw clause for readable drift messages
+            out["checks"].setdefault(canon, f"{t}: {clause}")
     eng.dispose()
     return out
 
@@ -113,10 +144,14 @@ def main():
                 problems.append(
                     f"column {t}.{c}: in MODELS, not in MIGRATIONS")
         checks_a, checks_b = a["checks"], b["checks"]
-        for ck in sorted(checks_a - checks_b):
-            problems.append(f"check constraint only in MIGRATIONS: {ck}")
-        for ck in sorted(checks_b - checks_a):
-            problems.append(f"check constraint only in MODELS: {ck}")
+        for ck in sorted(set(checks_a) - set(checks_b)):
+            problems.append(
+                "check constraint only in MIGRATIONS: "
+                + checks_a[ck])
+        for ck in sorted(set(checks_b) - set(checks_a)):
+            problems.append(
+                "check constraint only in MODELS: "
+                + checks_b[ck])
 
         if problems:
             print("SCHEMA PARITY FAILURE: migrations and models "
