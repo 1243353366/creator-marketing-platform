@@ -24,15 +24,15 @@ jobs:
           set -e
           sleep 20
           echo "-- healthz --"
-          curl -sf "$WORKER_URL/healthz" | grep -q '"status": "ok"' || { echo "FAIL: healthz"; exit 1; }
+          curl -sf "$WORKER_URL/healthz" | grep -q '"status":"ok"' || { echo "FAIL: healthz"; exit 1; }
           echo "-- consent persists across requests (the bug this deploy fixes) --"
-          curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"analytics": true}' "$WORKER_URL/api/consent" | grep -q '"analyticsConsent": true' || { echo "FAIL: consent grant"; exit 1; }
-          curl -sf -H "X-Tenant-Id: smoke" "$WORKER_URL/api/analytics" | grep -q '"consentGranted": true' || { echo "FAIL: analytics after consent (store not working)"; exit 1; }
+          curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"analytics": true}' "$WORKER_URL/api/consent" | grep -q '"analyticsConsent":true' || { echo "FAIL: consent grant"; exit 1; }
+          curl -sf -H "X-Tenant-Id: smoke" "$WORKER_URL/api/analytics" | grep -q '"consentGranted":true' || { echo "FAIL: analytics after consent (store not working)"; exit 1; }
           echo "-- pipeline idempotent --"
-          curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"period":"2026-10"}' "$WORKER_URL/api/pipeline/run" | grep -q '"status": "completed"' || { echo "FAIL: pipeline run"; exit 1; }
-          curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"period":"2026-10"}' "$WORKER_URL/api/pipeline/run" | grep -q '"status": "already_run"' || { echo "FAIL: pipeline idempotency"; exit 1; }
+          curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"period":"2026-10"}' "$WORKER_URL/api/pipeline/run" | grep -q '"status":"completed"' || { echo "FAIL: pipeline run"; exit 1; }
+          curl -sf -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"period":"2026-10"}' "$WORKER_URL/api/pipeline/run" | grep -q '"status":"already_run"' || { echo "FAIL: pipeline idempotency"; exit 1; }
           echo "-- tenant isolation --"
-          curl -sf -H "X-Tenant-Id: other-tenant" "$WORKER_URL/api/scripts" | grep -q '"count": 0' || { echo "FAIL: isolation"; exit 1; }
+          curl -sf -H "X-Tenant-Id: other-tenant" "$WORKER_URL/api/scripts" | grep -q '"count":0' || { echo "FAIL: isolation"; exit 1; }
           echo "-- SSRF wall --"
           curl -s -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"url":"http://127.0.0.1:8080/admin"}' "$WORKER_URL/api/seo-audit" | grep -qE 'Blocked|SEO audit failed|statusCode\\": 403' || { echo "FAIL: SSRF not blocked"; exit 1; }
           echo "ALL SMOKE TESTS PASSED"
