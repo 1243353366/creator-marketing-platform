@@ -7,3 +7,5 @@ __pycache__/
 /logs/
 .coverage
 htmlcov/
+.wrangler/
+node_modules/

@@ -1,0 +1,12 @@
+// Local-test config: identical to wrangler.jsonc minus the AI binding,
+// which requires an authenticated remote dev session. AI generation is
+// verified separately against the live Workers AI REST endpoint.
+{
+  "name": "creator-marketing-platform",
+  "main": "src/worker.js",
+  "compatibility_date": "2024-09-23",
+  "workers_dev": true,
+  "d1_databases": [
+    { "binding": "DB", "database_name": "creator-marketing-platform" }
+  ]
+}
