@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+__pycache__
+tests
+docs
+*.sqlite
+*.sqlite3
+data
+logs
+.coverage
+htmlcov

@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "creator-marketing-platform",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "containers": [
+    {
+      "max_instances": 1,
+      "instance_type": "small",
+      "class_name": "AppContainer",
+      "image": "./Dockerfile"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "APP", "class_name": "AppContainer" }]
+  },
+  "exports": {
+    "AppContainer": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "vars": { "FLASK_ENV": "production" }
+}

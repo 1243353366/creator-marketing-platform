@@ -1,0 +1,5 @@
+{
+  "name": "creator-marketing-platform-deploy",
+  "private": true,
+  "dependencies": { "@cloudflare/containers": "^1" }
+}
