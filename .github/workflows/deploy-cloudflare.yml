@@ -28,3 +28,12 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Diagnose failure
+        if: failure()
+        run: |
+          echo "Deploy failed. Common causes seen in this pipeline:"
+          echo "1. 'No access to the specified resource' -> API token lacks Workers edit"
+          echo "   (create token from the 'Edit Cloudflare Workers' template)."
+          echo "2. instance_type error -> allowed: lite/basic/standard-1..4/dev/standard."
+          echo "3. npm ETARGET -> check package version in package.json."
+          echo "Full wrangler logs are in the step output above."
