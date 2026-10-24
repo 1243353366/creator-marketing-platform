@@ -34,7 +34,7 @@ jobs:
           echo "-- tenant isolation --"
           curl -sf -H "X-Tenant-Id: other-tenant" "$WORKER_URL/api/scripts" | grep -q '"count":0' || { echo "FAIL: isolation"; exit 1; }
           echo "-- SSRF wall --"
-          curl -s -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"url":"http://127.0.0.1:8080/admin"}' "$WORKER_URL/api/seo-audit" | grep -qE 'Blocked|SEO audit failed|statusCode\\": 403' || { echo "FAIL: SSRF not blocked"; exit 1; }
+          curl -s -X POST -H "X-Tenant-Id: smoke" -H "Content-Type: application/json" -d '{"url":"http://127.0.0.1:8080/admin"}' "$WORKER_URL/api/seo-audit" | grep -qE 'Blocked|SEO audit failed|statusCode.{0,2}403' || { echo "FAIL: SSRF not blocked"; exit 1; }
           echo "ALL SMOKE TESTS PASSED"
       - name: Diagnose failure
         if: failure()
