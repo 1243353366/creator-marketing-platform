@@ -1,0 +1,29 @@
+# One-click deployment blueprint for Render.
+# Live URL is created when the owner authorizes Render with
+# their GitHub account at the Deploy button - this file only
+# describes the service; no credentials live in the repo.
+services:
+  - type: web
+    name: creator-marketing-platform
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 2 --bind 0.0.0.0:$PORT wsgi:app
+    preDeployCommand: alembic upgrade head
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cmp-db
+          property: connectionString
+      - key: FLASK_ENV
+        value: production
+databases:
+  - name: cmp-db
+    plan: free
+    databaseName: cmp
+    user: cmp
